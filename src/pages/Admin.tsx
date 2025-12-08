@@ -511,11 +511,16 @@ export default function AdminPage() {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => refetchUsers()}
+            onClick={async () => {
+              await queryClient.invalidateQueries({ queryKey: ["admin-users-full"] });
+              await refetchUsers();
+              toast({ title: "Lista atualizada!" });
+            }}
+            disabled={usersLoading}
             className="w-fit"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
+            <RefreshCw className={`w-4 h-4 mr-2 ${usersLoading ? 'animate-spin' : ''}`} />
+            {usersLoading ? 'Atualizando...' : 'Atualizar'}
           </Button>
         </div>
       </div>
