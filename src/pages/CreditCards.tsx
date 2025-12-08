@@ -62,7 +62,7 @@ export default function CreditCards() {
     enabled: !!user,
   });
 
-  // Fetch current month expenses for each credit card with full details
+  // Fetch current month expenses for each credit card with full details (for display)
   const { data: cardExpenses = [] } = useQuery({
     queryKey: ["card_expenses", user?.id, monthStart, monthEnd],
     queryFn: async () => {
@@ -81,7 +81,25 @@ export default function CreditCards() {
     enabled: !!user,
   });
 
-  // Group expenses by card
+  // Fetch ALL pending installments (current and future) to calculate accurate available limit
+  const { data: allPendingExpenses = [] } = useQuery({
+    queryKey: ["all_pending_expenses", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const today = format(new Date(), "yyyy-MM-dd");
+      const { data, error } = await supabase
+        .from("expenses")
+        .select("id, credit_card_id, amount, date, current_installment, total_installments")
+        .eq("user_id", user.id)
+        .gte("date", today) // Only future and current pending
+        .not("credit_card_id", "is", null);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // Group expenses by card (for selected month display)
   const expensesByCard = cardExpenses.reduce((acc, expense) => {
     if (expense.credit_card_id) {
       if (!acc[expense.credit_card_id]) acc[expense.credit_card_id] = [];
@@ -90,8 +108,16 @@ export default function CreditCards() {
     return acc;
   }, {} as Record<string, typeof cardExpenses>);
 
-  // Calculate used limit per card
+  // Calculate used limit per card for selected month (display)
   const usedLimitByCard = cardExpenses.reduce((acc, expense) => {
+    if (expense.credit_card_id) {
+      acc[expense.credit_card_id] = (acc[expense.credit_card_id] || 0) + Number(expense.amount);
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Calculate TOTAL pending debt per card (all future installments) for available limit
+  const totalPendingByCard = allPendingExpenses.reduce((acc, expense) => {
     if (expense.credit_card_id) {
       acc[expense.credit_card_id] = (acc[expense.credit_card_id] || 0) + Number(expense.amount);
     }
@@ -148,7 +174,8 @@ export default function CreditCards() {
 
   const totalLimit = creditCards.reduce((acc, card) => acc + (Number(card.credit_limit) || 0), 0);
   const totalUsed = Object.values(usedLimitByCard).reduce((acc, val) => acc + val, 0);
-  const totalAvailable = totalLimit - totalUsed;
+  const totalPending = Object.values(totalPendingByCard).reduce((acc, val) => acc + val, 0);
+  const totalAvailable = totalLimit - totalPending;
   const availablePercentage = totalLimit > 0 ? ((totalAvailable / totalLimit) * 100).toFixed(0) : "100";
 
   if (isLoading) {
@@ -304,9 +331,10 @@ export default function CreditCards() {
                   <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
                     <CardIcon className="w-5 h-5 text-destructive" />
                   </div>
-                  <span className="text-sm text-muted-foreground">Fatura do Mês</span>
+                  <span className="text-sm text-muted-foreground">Total Comprometido</span>
                 </div>
-                <p className="text-2xl font-bold text-destructive">R$ {totalUsed.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="text-2xl font-bold text-destructive">R$ {totalPending.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-muted-foreground mt-1">Fatura do mês: R$ {totalUsed.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               </CardContent>
             </Card>
             <Card variant="elevated">
@@ -327,9 +355,10 @@ export default function CreditCards() {
           <div className="grid lg:grid-cols-2 gap-6">
             {creditCards.map((card) => {
               const cardLimit = Number(card.credit_limit) || 0;
-              const cardUsed = usedLimitByCard[card.id] || 0;
-              const cardAvailable = cardLimit - cardUsed;
-              const cardUsedPercent = cardLimit > 0 ? (cardUsed / cardLimit) * 100 : 0;
+              const cardUsed = usedLimitByCard[card.id] || 0; // Current month bill
+              const cardPending = totalPendingByCard[card.id] || 0; // Total pending (all future installments)
+              const cardAvailable = cardLimit - cardPending;
+              const cardUsedPercent = cardLimit > 0 ? (cardPending / cardLimit) * 100 : 0;
               const cardExpensesList = expensesByCard[card.id] || [];
 
               // Calculate due date alert
@@ -396,9 +425,14 @@ export default function CreditCards() {
                           />
                         </div>
                         <div className="flex justify-between text-xs">
-                          <span className="text-destructive">Usado: R$ {cardUsed.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          <span className="text-destructive">Comprometido: R$ {cardPending.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                           <span className="text-success">Disponível: R$ {cardAvailable.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                         </div>
+                        {cardUsed > 0 && cardUsed !== cardPending && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Fatura do mês: R$ {cardUsed.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </p>
+                        )}
                       </div>
                     )}
 
