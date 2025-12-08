@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import {
-  Car,
   LayoutDashboard,
   Calendar,
   Receipt,
@@ -17,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/logo.png";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -96,10 +96,8 @@ export default function DashboardLayout() {
           {/* Logo */}
           <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
             <Link to="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <Car className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-sidebar-foreground">DriverFinance</span>
+              <img src={logo} alt="Driver Control" className="w-8 h-8" />
+              <span className="font-semibold text-sidebar-foreground">Driver Control</span>
             </Link>
             <Button
               variant="ghost"
@@ -172,9 +170,7 @@ export default function DashboardLayout() {
             <Menu className="w-5 h-5" />
           </Button>
           <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-              <Car className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img src={logo} alt="Driver Control" className="w-8 h-8" />
           </Link>
           <div className="w-10" /> {/* Spacer */}
         </header>
