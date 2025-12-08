@@ -1,16 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, DollarSign, Clock, Calendar, PlusCircle, Repeat } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Clock, Calendar, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
 import {
   BarChart,
   Bar,
@@ -28,8 +23,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCombinedExpenses } from "@/hooks/useCombinedExpenses";
 import { useRecurringExpenses, calculateDailyRecurringAmount } from "@/hooks/useRecurringExpenses";
-import { startOfWeek, endOfWeek, addWeeks, format, eachDayOfInterval, isSameDay, parseISO, startOfMonth, startOfDay, endOfDay } from "date-fns";
+import { startOfWeek, endOfWeek, format, eachDayOfInterval, isSameDay, startOfDay, endOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 const COLORS = [
   "hsl(48, 96%, 53%)",
@@ -56,60 +52,29 @@ const categoryLabels: Record<string, string> = {
 export default function WeeklyReports() {
   const { user } = useAuth();
   const now = new Date();
-  const monthStart = startOfMonth(now);
   
   // View mode: "week" or "day"
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
   
-  // Generate weeks for the current month
-  const weeks = useMemo(() => {
-    const result = [];
-    let weekStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-    let weekNum = 1;
-    
-    while (weekStart <= now) {
-      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 0 });
-      result.push({
-        value: weekNum.toString(),
-        label: `Semana ${weekNum} (${format(weekStart, "dd")}–${format(weekEnd, "dd")})`,
-        start: weekStart,
-        end: weekEnd > now ? now : weekEnd,
-      });
-      weekStart = addWeeks(weekStart, 1);
-      weekNum++;
-    }
-    return result;
-  }, [now]);
-
-  // Generate days for the current month
-  const days = useMemo(() => {
-    const result = [];
-    const daysInMonth = eachDayOfInterval({ start: monthStart, end: now });
-    
-    daysInMonth.forEach((day) => {
-      result.push({
-        value: format(day, "yyyy-MM-dd"),
-        label: format(day, "EEEE, dd 'de' MMMM", { locale: ptBR }),
-        start: startOfDay(day),
-        end: endOfDay(day),
-      });
-    });
-    return result.reverse(); // Most recent first
-  }, [now]);
-
-  const [selectedWeek, setSelectedWeek] = useState(weeks[weeks.length - 1]?.value || "1");
-  const [selectedDay, setSelectedDay] = useState(days[0]?.value || format(now, "yyyy-MM-dd"));
+  // Date range for period selection
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfWeek(now, { weekStartsOn: 0 }),
+    to: endOfWeek(now, { weekStartsOn: 0 }),
+  });
+  
+  // Single day selection
+  const [selectedDate, setSelectedDate] = useState<DateRange | undefined>({
+    from: now,
+    to: now,
+  });
 
   // Determine date range based on view mode
-  const selectedWeekData = weeks.find((w) => w.value === selectedWeek);
-  const selectedDayData = days.find((d) => d.value === selectedDay);
-  
   const periodStart = viewMode === "week" 
-    ? (selectedWeekData?.start || startOfWeek(now, { weekStartsOn: 0 }))
-    : (selectedDayData?.start || startOfDay(now));
+    ? (dateRange?.from || startOfWeek(now, { weekStartsOn: 0 }))
+    : startOfDay(selectedDate?.from || now);
   const periodEnd = viewMode === "week"
-    ? (selectedWeekData?.end || now)
-    : (selectedDayData?.end || endOfDay(now));
+    ? (dateRange?.to || endOfWeek(now, { weekStartsOn: 0 }))
+    : endOfDay(selectedDate?.from || now);
 
   // Fetch revenues for selected period
   const { data: revenues = [] } = useQuery({
@@ -156,10 +121,10 @@ export default function WeeklyReports() {
   const daysInterval = eachDayOfInterval({ start: periodStart, end: periodEnd });
   const dailyData = daysInterval.map((day) => {
     const dayRevenues = revenues
-      .filter((r) => isSameDay(parseISO(r.date), day))
+      .filter((r) => isSameDay(parseLocalDate(r.date), day))
       .reduce((sum, r) => sum + Number(r.amount), 0);
     const dayExpenses = combinedExpenses
-      .filter((e) => isSameDay(parseISO(e.date), day))
+      .filter((e) => isSameDay(parseLocalDate(e.date), day))
       .reduce((sum, e) => sum + e.amount, 0);
     
     // Add daily recurring expenses
@@ -168,6 +133,7 @@ export default function WeeklyReports() {
     
     return {
       day: DAY_NAMES[day.getDay()],
+      fullDate: format(day, "dd/MM"),
       lucro: dayRevenues - totalDayExpenses,
       receita: dayRevenues,
       despesa: totalDayExpenses,
@@ -202,50 +168,59 @@ export default function WeeklyReports() {
     { title: "Média/dia", value: `R$ ${avgPerDay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Clock },
   ];
 
+  // Handle preset period selections
+  const handlePresetPeriod = (days: number) => {
+    const end = now;
+    const start = subDays(now, days - 1);
+    setDateRange({ from: start, to: end });
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Relatórios</h1>
-          <p className="text-muted-foreground">
-            Acompanhe seu desempenho por período
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Relatórios</h1>
+            <p className="text-muted-foreground">
+              Acompanhe seu desempenho por período
+            </p>
+          </div>
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "week" | "day")}>
             <TabsList>
-              <TabsTrigger value="week">Semana</TabsTrigger>
+              <TabsTrigger value="week">Período</TabsTrigger>
               <TabsTrigger value="day">Dia</TabsTrigger>
             </TabsList>
           </Tabs>
-          
+        </div>
+        
+        {/* Date Selection */}
+        <div className="flex flex-wrap items-center gap-3">
           {viewMode === "week" ? (
-            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Selecione a semana" />
-              </SelectTrigger>
-              <SelectContent>
-                {weeks.map((week) => (
-                  <SelectItem key={week.value} value={week.value}>
-                    {week.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <>
+              <DateRangePicker
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                placeholder="Selecione o período"
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handlePresetPeriod(7)}>
+                  7 dias
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handlePresetPeriod(14)}>
+                  14 dias
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handlePresetPeriod(30)}>
+                  30 dias
+                </Button>
+              </div>
+            </>
           ) : (
-            <Select value={selectedDay} onValueChange={setSelectedDay}>
-              <SelectTrigger className="w-[260px]">
-                <SelectValue placeholder="Selecione o dia" />
-              </SelectTrigger>
-              <SelectContent>
-                {days.map((day) => (
-                  <SelectItem key={day.value} value={day.value}>
-                    {day.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DateRangePicker
+              dateRange={selectedDate}
+              onDateRangeChange={(range) => setSelectedDate(range ? { from: range.from, to: range.from } : undefined)}
+              placeholder="Selecione o dia"
+            />
           )}
         </div>
       </div>
@@ -293,7 +268,7 @@ export default function WeeklyReports() {
         </Card>
       ) : (
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Daily Profit Bar Chart - only show for weekly view */}
+          {/* Daily Profit Bar Chart - only show for period view */}
           {viewMode === "week" && (
             <Card variant="elevated">
             <CardHeader>
@@ -305,9 +280,9 @@ export default function WeeklyReports() {
                   <BarChart data={dailyData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 20%)" />
                     <XAxis
-                      dataKey="day"
+                      dataKey={daysInPeriod > 7 ? "fullDate" : "day"}
                       stroke="hsl(0, 0%, 50%)"
-                      tick={{ fill: "hsl(0, 0%, 60%)" }}
+                      tick={{ fill: "hsl(0, 0%, 60%)", fontSize: 12 }}
                     />
                     <YAxis
                       stroke="hsl(0, 0%, 50%)"
@@ -334,7 +309,7 @@ export default function WeeklyReports() {
             </Card>
           )}
 
-          {/* Revenue vs Expense Stacked Bar - only show for weekly view */}
+          {/* Revenue vs Expense Stacked Bar - only show for period view */}
           {viewMode === "week" && (
             <Card variant="elevated">
             <CardHeader>
@@ -346,9 +321,9 @@ export default function WeeklyReports() {
                   <BarChart data={dailyData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 20%)" />
                     <XAxis
-                      dataKey="day"
+                      dataKey={daysInPeriod > 7 ? "fullDate" : "day"}
                       stroke="hsl(0, 0%, 50%)"
-                      tick={{ fill: "hsl(0, 0%, 60%)" }}
+                      tick={{ fill: "hsl(0, 0%, 60%)", fontSize: 12 }}
                     />
                     <YAxis
                       stroke="hsl(0, 0%, 50%)"
@@ -451,23 +426,24 @@ export default function WeeklyReports() {
               </CardContent>
             </Card>
           )}
-          {/* Expense Distribution - only show for weekly view */}
-          {expenseCategoriesData.length > 0 && viewMode === "week" && (
-            <Card variant="elevated" className="lg:col-span-2">
+
+          {/* Expense Categories Pie Chart */}
+          {expenseCategoriesData.length > 0 && (
+            <Card variant="elevated" className={viewMode === "day" ? "lg:col-span-2" : ""}>
               <CardHeader>
-                <CardTitle className="text-lg">Distribuição de Despesas da Semana</CardTitle>
+                <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col md:flex-row items-center gap-8">
-                  <div className="w-full md:w-1/2 h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[280px] flex items-center">
+                  <div className="w-1/2">
+                    <ResponsiveContainer width="100%" height={250}>
                       <PieChart>
                         <Pie
                           data={expenseCategoriesData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={70}
-                          outerRadius={100}
+                          innerRadius={50}
+                          outerRadius={80}
                           paddingAngle={3}
                           dataKey="value"
                         >
@@ -486,22 +462,17 @@ export default function WeeklyReports() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="w-full md:w-1/2 grid grid-cols-2 gap-4">
+                  <div className="w-1/2 space-y-2">
                     {expenseCategoriesData.map((category, index) => (
-                      <div
-                        key={index}
-                        className="p-4 rounded-lg bg-secondary/30 border border-border/50"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
                           <div
                             className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: category.color }}
                           />
-                          <span className="text-sm text-muted-foreground">
-                            {category.name}
-                          </span>
+                          <span className="text-muted-foreground">{category.name}</span>
                         </div>
-                        <p className="text-lg font-semibold">R$ {category.value.toFixed(2)}</p>
+                        <span className="font-medium">R$ {category.value.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

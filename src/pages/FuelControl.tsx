@@ -355,7 +355,10 @@ export default function FuelControl() {
                       className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
                     >
                       <td className="py-3 px-4 text-sm">
-                        {new Date(log.date).toLocaleDateString("pt-BR")}
+                        {(() => {
+                          const [year, month, day] = log.date.split('-').map(Number);
+                          return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+                        })()}
                       </td>
                       <td className="py-3 px-4 text-sm">{log.station || "—"}</td>
                       <td className="py-3 px-4 text-sm capitalize">{log.fuel_type}</td>
