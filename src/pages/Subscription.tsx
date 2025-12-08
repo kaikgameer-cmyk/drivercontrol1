@@ -34,24 +34,26 @@ const plans = [
   {
     name: "Mensal",
     interval: "month",
-    price: "R$ 29,90",
+    price: "R$ 19,90",
     period: "/mês",
     checkoutUrl: KIWIFY_CHECKOUT_MENSAL,
   },
   {
-    name: "Trimestral",
+    name: "3 Meses",
     interval: "quarter",
-    price: "R$ 79,90",
-    period: "/3 meses",
+    price: "R$ 47,90",
+    period: "/trimestre",
     checkoutUrl: KIWIFY_CHECKOUT_TRIMESTRAL,
     popular: true,
   },
   {
     name: "Anual",
     interval: "year",
-    price: "R$ 249,90",
+    price: "R$ 147,90",
     period: "/ano",
+    equivalent: "R$ 15,30/mês",
     checkoutUrl: KIWIFY_CHECKOUT_ANUAL,
+    bestValue: true,
   },
 ];
 
@@ -226,11 +228,16 @@ export default function SubscriptionPage() {
             return (
               <Card 
                 key={plan.name} 
-                className={`relative ${plan.popular ? "border-primary shadow-lg" : ""} ${isCurrentPlan ? "ring-2 ring-primary" : ""}`}
+                className={`relative ${plan.popular ? "border-primary shadow-lg" : ""} ${plan.bestValue ? "border-yellow-500/50" : ""} ${isCurrentPlan ? "ring-2 ring-primary" : ""}`}
               >
                 {plan.popular && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
                     Mais Popular
+                  </Badge>
+                )}
+                {plan.bestValue && !plan.popular && (
+                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black">
+                    Mais Economia
                   </Badge>
                 )}
                 {isCurrentPlan && (
@@ -241,9 +248,13 @@ export default function SubscriptionPage() {
                 <CardHeader className="text-center pb-2">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <div className="mt-2">
-                    <span className="text-3xl font-bold">{plan.price}</span>
+                    <span className="text-sm text-muted-foreground">R$ </span>
+                    <span className="text-3xl font-bold">{plan.price.replace("R$ ", "")}</span>
                     <span className="text-muted-foreground">{plan.period}</span>
                   </div>
+                  {plan.equivalent && (
+                    <p className="text-xs text-primary mt-1">Equivale a {plan.equivalent}</p>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <Button 
