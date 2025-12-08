@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, PlusCircle, Repeat } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
 import {
   AreaChart,
   Area,
@@ -19,8 +22,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCombinedExpenses } from "@/hooks/useCombinedExpenses";
 import { useRecurringExpenses, calculateDailyRecurringAmount } from "@/hooks/useRecurringExpenses";
-import { startOfMonth, endOfMonth, format, parseISO, eachDayOfInterval, isSameDay } from "date-fns";
+import { startOfMonth, endOfMonth, format, eachDayOfInterval, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 const COLORS = [
   "hsl(48, 96%, 53%)",
@@ -30,27 +34,30 @@ const COLORS = [
   "hsl(0, 0%, 50%)",
 ];
 
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export default function Dashboard() {
   const { user } = useAuth();
   const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+  
+  // Date range state - defaults to current month
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(now),
+    to: endOfMonth(now),
+  });
 
-  // Fetch revenues for current month
+  const periodStart = dateRange?.from || startOfMonth(now);
+  const periodEnd = dateRange?.to || endOfMonth(now);
+
+  // Fetch revenues for selected period
   const { data: revenues = [] } = useQuery({
-    queryKey: ["revenues", user?.id, format(monthStart, "yyyy-MM")],
+    queryKey: ["revenues", user?.id, format(periodStart, "yyyy-MM-dd"), format(periodEnd, "yyyy-MM-dd")],
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from("revenues")
         .select("*")
         .eq("user_id", user.id)
-        .gte("date", format(monthStart, "yyyy-MM-dd"))
-        .lte("date", format(monthEnd, "yyyy-MM-dd"));
+        .gte("date", format(periodStart, "yyyy-MM-dd"))
+        .lte("date", format(periodEnd, "yyyy-MM-dd"));
       if (error) throw error;
       return data || [];
     },
@@ -60,22 +67,22 @@ export default function Dashboard() {
   // Fetch combined expenses (expenses + fuel logs)
   const { combinedExpenses, totalExpenses } = useCombinedExpenses(
     user?.id,
-    monthStart,
-    monthEnd
+    periodStart,
+    periodEnd
   );
 
   // Fetch recurring expenses
   const { recurringExpenses } = useRecurringExpenses(user?.id);
 
-  // Calculate recurring expenses for the month (daily amount * days in month)
-  const daysInMonth = now.getDate();
-  const monthlyRecurringTotal = recurringExpenses
-    .filter((e) => e.is_active && e.start_date <= format(now, "yyyy-MM-dd") && (!e.end_date || e.end_date >= format(monthStart, "yyyy-MM-dd")))
-    .reduce((sum, e) => sum + (e.amount / 30) * daysInMonth, 0);
+  // Calculate recurring expenses for the period
+  const daysInPeriod = eachDayOfInterval({ start: periodStart, end: periodEnd }).length;
+  const periodRecurringTotal = recurringExpenses
+    .filter((e) => e.is_active && e.start_date <= format(periodEnd, "yyyy-MM-dd") && (!e.end_date || e.end_date >= format(periodStart, "yyyy-MM-dd")))
+    .reduce((sum, e) => sum + (e.amount / 30) * daysInPeriod, 0);
 
   // Calculate KPIs
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0);
-  const totalAllExpenses = totalExpenses + monthlyRecurringTotal;
+  const totalAllExpenses = totalExpenses + periodRecurringTotal;
   const netProfit = totalRevenue - totalAllExpenses;
   
   // Calculate average per day based on days with revenue
@@ -90,8 +97,8 @@ export default function Dashboard() {
   }, {} as Record<string, number>);
 
   // Add recurring expenses as a category
-  if (monthlyRecurringTotal > 0) {
-    expensesByCategory["despesas_fixas"] = monthlyRecurringTotal;
+  if (periodRecurringTotal > 0) {
+    expensesByCategory["despesas_fixas"] = periodRecurringTotal;
   }
 
   const categoryLabels: Record<string, string> = {
@@ -113,13 +120,13 @@ export default function Dashboard() {
   }));
 
   // Daily profit data (including recurring expenses)
-  const daysInterval = eachDayOfInterval({ start: monthStart, end: now });
+  const daysInterval = eachDayOfInterval({ start: periodStart, end: periodEnd });
   const dailyData = daysInterval.map((day) => {
     const dayRevenues = revenues
-      .filter((r) => isSameDay(parseISO(r.date), day))
+      .filter((r) => isSameDay(parseLocalDate(r.date), day))
       .reduce((sum, r) => sum + Number(r.amount), 0);
     const dayExpenses = combinedExpenses
-      .filter((e) => isSameDay(parseISO(e.date), day))
+      .filter((e) => isSameDay(parseLocalDate(e.date), day))
       .reduce((sum, e) => sum + e.amount, 0);
     
     // Add daily recurring expenses
@@ -167,11 +174,18 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Olá! Aqui está seu resultado de {format(now, "MMMM yyyy", { locale: ptBR })}.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Acompanhe seus resultados financeiros
+          </p>
+        </div>
+        <DateRangePicker
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          placeholder="Selecione o período"
+        />
       </div>
 
       {/* KPI Cards */}
@@ -218,7 +232,7 @@ export default function Dashboard() {
           {/* Area Chart - Daily Profit */}
           <Card variant="elevated">
             <CardHeader>
-              <CardTitle className="text-lg">Lucro Diário do Mês</CardTitle>
+              <CardTitle className="text-lg">Lucro Diário</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">

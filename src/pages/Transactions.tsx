@@ -147,15 +147,20 @@ export default function Transactions() {
       
       // Create an expense entry for each installment
       const expensesToInsert = [];
-      const baseDate = new Date(expenseDate);
+      // Parse date correctly to avoid timezone issues
+      const [year, month, day] = expenseDate.split('-').map(Number);
+      const baseDate = new Date(year, month - 1, day, 12, 0, 0);
       
       for (let i = 0; i < installments; i++) {
         const installmentDate = new Date(baseDate);
         installmentDate.setMonth(installmentDate.getMonth() + i);
         
+        // Format date manually to avoid timezone issues
+        const formattedDate = `${installmentDate.getFullYear()}-${String(installmentDate.getMonth() + 1).padStart(2, '0')}-${String(installmentDate.getDate()).padStart(2, '0')}`;
+        
         expensesToInsert.push({
           user_id: user.id,
-          date: format(installmentDate, "yyyy-MM-dd"),
+          date: formattedDate,
           amount: installmentAmount,
           category: expenseCategory,
           payment_method: expenseMethod || null,
@@ -706,7 +711,10 @@ export default function Transactions() {
                         className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
                       >
                         <td className="py-3 px-4 text-sm">
-                          {new Date(transaction.date).toLocaleDateString("pt-BR")}
+                          {(() => {
+                            const [year, month, day] = transaction.date.split('-').map(Number);
+                            return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+                          })()}
                         </td>
                         <td className="py-3 px-4">
                           <span
