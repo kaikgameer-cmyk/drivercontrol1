@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useInvalidateFinancialData } from "@/hooks/useInvalidateFinancialData";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -35,6 +36,7 @@ export default function CreditCards() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { invalidateAll } = useInvalidateFinancialData();
 
   const currentMonth = new Date();
   const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
@@ -106,7 +108,7 @@ export default function CreditCards() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      invalidateAll();
       setIsDialogOpen(false);
       resetForm();
       toast({ title: "Cartão adicionado!" });
@@ -122,7 +124,7 @@ export default function CreditCards() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      invalidateAll();
       toast({ title: "Cartão removido!" });
     },
     onError: () => {

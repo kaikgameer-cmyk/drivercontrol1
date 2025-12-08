@@ -23,6 +23,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useInvalidateFinancialData } from "@/hooks/useInvalidateFinancialData";
 import { format } from "date-fns";
 
 export default function Transactions() {
@@ -63,6 +64,7 @@ export default function Transactions() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { invalidateAll } = useInvalidateFinancialData();
 
   const { data: revenues = [], isLoading: loadingRevenues } = useQuery({
     queryKey: ["revenues", user?.id],
@@ -126,7 +128,7 @@ export default function Transactions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      invalidateAll();
       setIsDialogOpen(false);
       resetRevenueForm();
       toast({ title: "Receita adicionada!" });
@@ -169,8 +171,7 @@ export default function Transactions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["card_expenses"] });
+      invalidateAll();
       setIsDialogOpen(false);
       resetExpenseForm();
       toast({ title: "Despesa adicionada!" });
@@ -196,7 +197,7 @@ export default function Transactions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      invalidateAll();
       setIsEditDialogOpen(false);
       setEditingTransaction(null);
       toast({ title: "Receita atualizada!" });
@@ -222,8 +223,7 @@ export default function Transactions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["card_expenses"] });
+      invalidateAll();
       setIsEditDialogOpen(false);
       setEditingTransaction(null);
       toast({ title: "Despesa atualizada!" });
@@ -239,7 +239,7 @@ export default function Transactions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      invalidateAll();
       toast({ title: "Receita removida!" });
     },
   });
@@ -250,8 +250,7 @@ export default function Transactions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["card_expenses"] });
+      invalidateAll();
       toast({ title: "Despesa removida!" });
     },
   });
