@@ -29,6 +29,7 @@ const navItems = [
   { icon: CreditCard, label: "Cartões", path: "/dashboard/cartoes" },
   { icon: Fuel, label: "Combustível", path: "/dashboard/combustivel" },
   { icon: Repeat, label: "Despesas Fixas", path: "/dashboard/despesas-fixas" },
+  { icon: Crown, label: "Assinatura", path: "/dashboard/assinatura" },
   { icon: Settings, label: "Configurações", path: "/dashboard/configuracoes" },
 ];
 

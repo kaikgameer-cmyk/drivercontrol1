@@ -14,6 +14,7 @@ import CreditCards from "./pages/CreditCards";
 import FuelControl from "./pages/FuelControl";
 import RecurringExpenses from "./pages/RecurringExpenses";
 import SettingsPage from "./pages/Settings";
+import SubscriptionPage from "./pages/Subscription";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="combustivel" element={<FuelControl />} />
             <Route path="despesas-fixas" element={<RecurringExpenses />} />
             <Route path="configuracoes" element={<SettingsPage />} />
+            <Route path="assinatura" element={<SubscriptionPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
