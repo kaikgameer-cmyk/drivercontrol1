@@ -18,42 +18,43 @@ interface SubscriptionPaywallProps {
 const plans = [
   {
     name: "Mensal",
-    price: "R$ 29,90",
+    subtitle: "Para quem quer testar",
+    price: "R$ 19,90",
     period: "/mês",
-    description: "Acesso completo por 1 mês",
     checkoutUrl: KIWIFY_CHECKOUT_MENSAL,
     features: [
-      "Dashboard completo",
-      "Relatórios semanais",
-      "Controle de combustível",
-      "Gestão de cartões",
+      "Acesso completo ao Driver Control",
+      "Atualizações inclusas",
+      "Suporte básico",
     ],
   },
   {
-    name: "Trimestral",
-    price: "R$ 79,90",
-    period: "/3 meses",
-    description: "Economize 11%",
+    name: "3 Meses",
+    subtitle: "Escolha mais popular",
+    price: "R$ 47,90",
+    period: "/trimestre",
     checkoutUrl: KIWIFY_CHECKOUT_TRIMESTRAL,
     popular: true,
     features: [
-      "Tudo do plano mensal",
-      "3 meses de acesso",
-      "Economia garantida",
+      "Acesso completo ao Driver Control",
+      "Atualizações inclusas",
       "Suporte prioritário",
+      "Perfeito para testar na prática",
     ],
   },
   {
     name: "Anual",
-    price: "R$ 249,90",
+    subtitle: "Melhor custo-benefício",
+    price: "R$ 147,90",
     period: "/ano",
-    description: "Economize 30%",
+    equivalent: "Equivale a apenas R$ 15,30/mês",
     checkoutUrl: KIWIFY_CHECKOUT_ANUAL,
+    bestValue: true,
     features: [
-      "Tudo do plano trimestral",
-      "12 meses de acesso",
-      "Maior economia",
-      "Acesso antecipado a novidades",
+      "Acesso completo ao Driver Control",
+      "Atualizações inclusas",
+      "Suporte prioritário",
+      "Maior economia no longo prazo",
     ],
   },
 ];
@@ -100,26 +101,38 @@ export function SubscriptionPaywall({
           {plans.map((plan) => (
             <Card 
               key={plan.name} 
-              className={`relative ${plan.popular ? "border-primary shadow-lg" : ""}`}
+              className={`relative ${plan.popular ? "border-primary shadow-lg" : ""} ${plan.bestValue ? "border-yellow-500/50" : ""}`}
             >
               {plan.popular && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
                   Mais Popular
                 </Badge>
               )}
+              {plan.bestValue && (
+                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black">
+                  Mais Economia
+                </Badge>
+              )}
               <CardHeader className="text-center pb-2">
-                <CardTitle className="text-lg">{plan.name}</CardTitle>
-                <div className="mt-2">
-                  <span className="text-3xl font-bold">{plan.price}</span>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-primary" />
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                </div>
+                <CardDescription>{plan.subtitle}</CardDescription>
+                <div className="mt-3">
+                  <span className="text-sm text-muted-foreground">R$ </span>
+                  <span className="text-3xl font-bold">{plan.price.replace("R$ ", "")}</span>
                   <span className="text-muted-foreground">{plan.period}</span>
                 </div>
-                <CardDescription>{plan.description}</CardDescription>
+                {plan.equivalent && (
+                  <p className="text-xs text-primary mt-1">{plan.equivalent}</p>
+                )}
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 mb-6">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-green-500" />
+                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
                       {feature}
                     </li>
                   ))}
@@ -129,8 +142,7 @@ export function SubscriptionPaywall({
                   variant={plan.popular ? "default" : "outline"}
                   onClick={() => handleSelectPlan(plan.checkoutUrl)}
                 >
-                  <Zap className="w-4 h-4 mr-2" />
-                  Assinar
+                  Assinar {plan.name === "3 Meses" ? "Plano 3 Meses" : `Plano ${plan.name}`}
                 </Button>
               </CardContent>
             </Card>
