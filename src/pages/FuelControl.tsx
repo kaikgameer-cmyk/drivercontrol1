@@ -22,6 +22,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useInvalidateFinancialData } from "@/hooks/useInvalidateFinancialData";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 
 export default function FuelControl() {
@@ -38,6 +39,7 @@ export default function FuelControl() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { invalidateAll } = useInvalidateFinancialData();
 
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -91,7 +93,7 @@ export default function FuelControl() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fuel_logs"] });
+      invalidateAll();
       setIsDialogOpen(false);
       resetForm();
       toast({ title: "Abastecimento registrado!" });
@@ -107,7 +109,7 @@ export default function FuelControl() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fuel_logs"] });
+      invalidateAll();
       toast({ title: "Abastecimento removido!" });
     },
   });
