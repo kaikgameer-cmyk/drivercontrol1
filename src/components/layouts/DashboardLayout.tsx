@@ -15,23 +15,14 @@ import {
   Menu,
   X,
   Crown,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { SubscriptionPaywall } from "@/components/SubscriptionPaywall";
 import { Badge } from "@/components/ui/badge";
-
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { icon: Calendar, label: "Relatórios Semanais", path: "/dashboard/semanal" },
-  { icon: Receipt, label: "Lançamentos", path: "/dashboard/lancamentos" },
-  { icon: CreditCard, label: "Cartões", path: "/dashboard/cartoes" },
-  { icon: Fuel, label: "Combustível", path: "/dashboard/combustivel" },
-  { icon: Repeat, label: "Despesas Fixas", path: "/dashboard/despesas-fixas" },
-  { icon: Crown, label: "Assinatura", path: "/dashboard/assinatura" },
-  { icon: Settings, label: "Configurações", path: "/dashboard/configuracoes" },
-];
 
 export default function DashboardLayout() {
   const [user, setUser] = useState<User | null>(null);
@@ -52,6 +43,22 @@ export default function DashboardLayout() {
     isLoading: subscriptionLoading,
     daysRemaining 
   } = useSubscription();
+
+  // Admin hook
+  const { isAdmin } = useIsAdmin();
+
+  // Build nav items dynamically based on admin status
+  const navItems = [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+    { icon: Calendar, label: "Relatórios Semanais", path: "/dashboard/semanal" },
+    { icon: Receipt, label: "Lançamentos", path: "/dashboard/lancamentos" },
+    { icon: CreditCard, label: "Cartões", path: "/dashboard/cartoes" },
+    { icon: Fuel, label: "Combustível", path: "/dashboard/combustivel" },
+    { icon: Repeat, label: "Despesas Fixas", path: "/dashboard/despesas-fixas" },
+    { icon: Crown, label: "Assinatura", path: "/dashboard/assinatura" },
+    { icon: Settings, label: "Configurações", path: "/dashboard/configuracoes" },
+    ...(isAdmin ? [{ icon: Shield, label: "Admin", path: "/dashboard/admin" }] : []),
+  ];
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
