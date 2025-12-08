@@ -25,6 +25,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useCombinedExpenses } from "@/hooks/useCombinedExpenses";
 import { startOfWeek, endOfWeek, addWeeks, format, eachDayOfInterval, isSameDay, parseISO, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -37,6 +38,17 @@ const COLORS = [
 ];
 
 const DAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+const categoryLabels: Record<string, string> = {
+  combustivel: "Combustível",
+  manutencao: "Manutenção",
+  lavagem: "Lavagem",
+  pedagio: "Pedágio",
+  estacionamento: "Estacionamento",
+  alimentacao: "Alimentação",
+  cartao: "Cartão",
+  outro: "Outro",
+};
 
 export default function WeeklyReports() {
   const { user } = useAuth();
@@ -86,26 +98,15 @@ export default function WeeklyReports() {
     enabled: !!user,
   });
 
-  // Fetch expenses for selected week
-  const { data: expenses = [] } = useQuery({
-    queryKey: ["expenses", user?.id, format(weekStart, "yyyy-MM-dd"), format(weekEnd, "yyyy-MM-dd")],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", format(weekStart, "yyyy-MM-dd"))
-        .lte("date", format(weekEnd, "yyyy-MM-dd"));
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user,
-  });
+  // Fetch combined expenses (expenses + fuel logs) for selected week
+  const { combinedExpenses, totalExpenses } = useCombinedExpenses(
+    user?.id,
+    weekStart,
+    weekEnd
+  );
 
   // Calculate KPIs
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0);
-  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const netProfit = totalRevenue - totalExpenses;
   
   const daysWithRevenue = new Set(revenues.map((r) => r.date)).size;
@@ -117,9 +118,9 @@ export default function WeeklyReports() {
     const dayRevenues = revenues
       .filter((r) => isSameDay(parseISO(r.date), day))
       .reduce((sum, r) => sum + Number(r.amount), 0);
-    const dayExpenses = expenses
+    const dayExpenses = combinedExpenses
       .filter((e) => isSameDay(parseISO(e.date), day))
-      .reduce((sum, e) => sum + Number(e.amount), 0);
+      .reduce((sum, e) => sum + e.amount, 0);
     return {
       day: DAY_NAMES[day.getDay()],
       lucro: dayRevenues - dayExpenses,
@@ -128,20 +129,20 @@ export default function WeeklyReports() {
     };
   });
 
-  // Expense categories
-  const expensesByCategory = expenses.reduce((acc, expense) => {
+  // Expense categories (includes fuel)
+  const expensesByCategory = combinedExpenses.reduce((acc, expense) => {
     const category = expense.category || "Outros";
-    acc[category] = (acc[category] || 0) + Number(expense.amount);
+    acc[category] = (acc[category] || 0) + expense.amount;
     return acc;
   }, {} as Record<string, number>);
 
   const expenseCategoriesData = Object.entries(expensesByCategory).map(([name, value], index) => ({
-    name,
+    name: categoryLabels[name] || name,
     value,
     color: COLORS[index % COLORS.length],
   }));
 
-  const hasData = revenues.length > 0 || expenses.length > 0;
+  const hasData = revenues.length > 0 || combinedExpenses.length > 0;
 
   const kpis = [
     { title: "Receita", value: `R$ ${totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: DollarSign },

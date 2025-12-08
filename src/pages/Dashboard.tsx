@@ -17,6 +17,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useCombinedExpenses } from "@/hooks/useCombinedExpenses";
 import { startOfMonth, endOfMonth, format, parseISO, eachDayOfInterval, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -55,39 +56,39 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  // Fetch expenses for current month
-  const { data: expenses = [] } = useQuery({
-    queryKey: ["expenses", user?.id, format(monthStart, "yyyy-MM")],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", format(monthStart, "yyyy-MM-dd"))
-        .lte("date", format(monthEnd, "yyyy-MM-dd"));
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user,
-  });
+  // Fetch combined expenses (expenses + fuel logs)
+  const { combinedExpenses, totalExpenses } = useCombinedExpenses(
+    user?.id,
+    monthStart,
+    monthEnd
+  );
 
   // Calculate KPIs
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0);
-  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const netProfit = totalRevenue - totalExpenses;
   const daysInMonth = now.getDate();
   const avgPerDay = daysInMonth > 0 ? netProfit / daysInMonth : 0;
 
-  // Group expenses by category
-  const expensesByCategory = expenses.reduce((acc, expense) => {
+  // Group combined expenses by category (includes fuel)
+  const expensesByCategory = combinedExpenses.reduce((acc, expense) => {
     const category = expense.category || "Outros";
-    acc[category] = (acc[category] || 0) + Number(expense.amount);
+    acc[category] = (acc[category] || 0) + expense.amount;
     return acc;
   }, {} as Record<string, number>);
 
+  const categoryLabels: Record<string, string> = {
+    combustivel: "Combustível",
+    manutencao: "Manutenção",
+    lavagem: "Lavagem",
+    pedagio: "Pedágio",
+    estacionamento: "Estacionamento",
+    alimentacao: "Alimentação",
+    cartao: "Cartão",
+    outro: "Outro",
+  };
+
   const expenseCategoriesData = Object.entries(expensesByCategory).map(([name, value], index) => ({
-    name,
+    name: categoryLabels[name] || name,
     value,
     color: COLORS[index % COLORS.length],
   }));
@@ -98,16 +99,16 @@ export default function Dashboard() {
     const dayRevenues = revenues
       .filter((r) => isSameDay(parseISO(r.date), day))
       .reduce((sum, r) => sum + Number(r.amount), 0);
-    const dayExpenses = expenses
+    const dayExpenses = combinedExpenses
       .filter((e) => isSameDay(parseISO(e.date), day))
-      .reduce((sum, e) => sum + Number(e.amount), 0);
+      .reduce((sum, e) => sum + e.amount, 0);
     return {
       day: format(day, "dd"),
       lucro: dayRevenues - dayExpenses,
     };
   });
 
-  const hasData = revenues.length > 0 || expenses.length > 0;
+  const hasData = revenues.length > 0 || combinedExpenses.length > 0;
 
   const kpis = [
     {
