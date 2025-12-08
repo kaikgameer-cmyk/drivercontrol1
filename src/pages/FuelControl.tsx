@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Fuel as FuelIcon, Gauge, DollarSign, TrendingUp, Loader2, Trash2 } from "lucide-react";
+import { Plus, Fuel as FuelIcon, Gauge, DollarSign, TrendingUp, Loader2, Trash2, CreditCard } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,6 +30,7 @@ export default function FuelControl() {
   const [station, setStation] = useState("");
   const [liters, setLiters] = useState("");
   const [totalValue, setTotalValue] = useState("");
+  const [creditCardId, setCreditCardId] = useState("");
   const [fuelType, setFuelType] = useState("");
   const [odometerKm, setOdometerKm] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -48,10 +49,25 @@ export default function FuelControl() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("fuel_logs")
-        .select("*")
+        .select("*, credit_cards(name)")
         .eq("user_id", user.id)
         .order("date", { ascending: false })
         .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: creditCards = [] } = useQuery({
+    queryKey: ["credit_cards", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("credit_cards")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name");
       if (error) throw error;
       return data || [];
     },
@@ -70,6 +86,7 @@ export default function FuelControl() {
         fuel_type: fuelType,
         odometer_km: odometerKm ? parseFloat(odometerKm) : null,
         payment_method: paymentMethod || null,
+        credit_card_id: paymentMethod === "credito" && creditCardId ? creditCardId : null,
       });
       if (error) throw error;
     },
@@ -103,6 +120,7 @@ export default function FuelControl() {
     setFuelType("");
     setOdometerKm("");
     setPaymentMethod("");
+    setCreditCardId("");
   };
 
   // Calculate metrics
@@ -201,7 +219,10 @@ export default function FuelControl() {
               </div>
               <div className="space-y-2">
                 <Label>Método de pagamento</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <Select value={paymentMethod} onValueChange={(value) => {
+                  setPaymentMethod(value);
+                  if (value !== "credito") setCreditCardId("");
+                }}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="dinheiro">Dinheiro</SelectItem>
@@ -211,6 +232,29 @@ export default function FuelControl() {
                   </SelectContent>
                 </Select>
               </div>
+              {paymentMethod === "credito" && creditCards.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" />
+                    Selecione o cartão
+                  </Label>
+                  <Select value={creditCardId} onValueChange={setCreditCardId}>
+                    <SelectTrigger><SelectValue placeholder="Escolha um cartão cadastrado" /></SelectTrigger>
+                    <SelectContent>
+                      {creditCards.map((card) => (
+                        <SelectItem key={card.id} value={card.id}>
+                          {card.name} {card.last_digits ? `(•••• ${card.last_digits})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {paymentMethod === "credito" && creditCards.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum cartão cadastrado. Cadastre um cartão na seção de Cartões de Crédito.
+                </p>
+              )}
               <Button type="submit" variant="hero" className="w-full" disabled={createFuelLog.isPending}>
                 {createFuelLog.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Abastecimento"}
               </Button>
