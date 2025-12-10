@@ -10,6 +10,8 @@ export interface RecurringExpense {
   start_date: string;
   end_date: string | null;
   is_active: boolean;
+  recurrence_type: "single" | "monthly";
+  recurrence_day: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +41,8 @@ export function useRecurringExpenses(userId: string | undefined) {
       amount: number;
       start_date: string;
       end_date?: string | null;
+      recurrence_type: "single" | "monthly";
+      recurrence_day?: number | null;
     }) => {
       if (!userId) throw new Error("User not authenticated");
       const { error } = await supabase.from("recurring_expenses").insert({
@@ -47,6 +51,8 @@ export function useRecurringExpenses(userId: string | undefined) {
         amount: expense.amount,
         start_date: expense.start_date,
         end_date: expense.end_date || null,
+        recurrence_type: expense.recurrence_type,
+        recurrence_day: expense.recurrence_day || null,
       });
       if (error) throw error;
     },
@@ -67,6 +73,8 @@ export function useRecurringExpenses(userId: string | undefined) {
       start_date?: string;
       end_date?: string | null;
       is_active?: boolean;
+      recurrence_type?: "single" | "monthly";
+      recurrence_day?: number | null;
     }) => {
       const { id, ...updates } = expense;
       const { error } = await supabase
@@ -110,27 +118,84 @@ export function useRecurringExpenses(userId: string | undefined) {
   };
 }
 
-// Calculate daily recurring expense for a given date
+/**
+ * Calculate daily recurring expense for a given date
+ * Handles both single-day and monthly recurring expenses
+ */
 export function calculateDailyRecurringAmount(
   recurringExpenses: RecurringExpense[],
   date: Date
 ): { total: number; breakdown: { name: string; dailyAmount: number }[] } {
-  const DAYS_DIVISOR = 30; // Always divide by 30 as per user preference
+  const DAYS_DIVISOR = 30; // Divide monthly by 30 days
   const dateStr = date.toISOString().split("T")[0];
-  
-  const activeExpenses = recurringExpenses.filter((expense) => {
-    if (!expense.is_active) return false;
-    if (expense.start_date > dateStr) return false;
-    if (expense.end_date && expense.end_date < dateStr) return false;
-    return true;
-  });
+  const dayOfMonth = date.getDate();
 
-  const breakdown = activeExpenses.map((expense) => ({
-    name: expense.name,
-    dailyAmount: expense.amount / DAYS_DIVISOR,
-  }));
+  const breakdown: { name: string; dailyAmount: number }[] = [];
+
+  for (const expense of recurringExpenses) {
+    if (!expense.is_active) continue;
+    if (expense.start_date > dateStr) continue;
+    if (expense.end_date && expense.end_date < dateStr) continue;
+
+    if (expense.recurrence_type === "single") {
+      // Single day expense - only applies on the exact start_date
+      if (expense.start_date === dateStr) {
+        breakdown.push({
+          name: expense.name,
+          dailyAmount: expense.amount,
+        });
+      }
+    } else {
+      // Monthly recurring - applies daily as amount/30
+      // If recurrence_day is set, check if today is that day (for specific day reporting)
+      breakdown.push({
+        name: expense.name,
+        dailyAmount: expense.amount / DAYS_DIVISOR,
+      });
+    }
+  }
 
   const total = breakdown.reduce((sum, item) => sum + item.dailyAmount, 0);
 
   return { total, breakdown };
+}
+
+/**
+ * Calculate total recurring expenses for a date range
+ * Properly handles single-day and monthly recurring expenses
+ */
+export function calculatePeriodRecurringAmount(
+  recurringExpenses: RecurringExpense[],
+  startDate: Date,
+  endDate: Date
+): number {
+  const DAYS_DIVISOR = 30;
+  let total = 0;
+
+  for (const expense of recurringExpenses) {
+    if (!expense.is_active) continue;
+
+    const expenseStart = new Date(expense.start_date + "T12:00:00");
+    const expenseEnd = expense.end_date ? new Date(expense.end_date + "T12:00:00") : null;
+
+    // Check if expense is within the period
+    if (expenseStart > endDate) continue;
+    if (expenseEnd && expenseEnd < startDate) continue;
+
+    if (expense.recurrence_type === "single") {
+      // Single day expense - only count if it falls within the period
+      if (expenseStart >= startDate && expenseStart <= endDate) {
+        total += expense.amount;
+      }
+    } else {
+      // Monthly recurring - calculate proportionally
+      const periodStart = expenseStart > startDate ? expenseStart : startDate;
+      const periodEnd = expenseEnd && expenseEnd < endDate ? expenseEnd : endDate;
+      
+      const daysInPeriod = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      total += (expense.amount / DAYS_DIVISOR) * daysInPeriod;
+    }
+  }
+
+  return total;
 }
