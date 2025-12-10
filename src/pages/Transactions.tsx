@@ -782,13 +782,13 @@ export default function Transactions() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Data</th>
-                        <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Tipo</th>
-                        <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden sm:table-cell">Categoria</th>
-                        <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden md:table-cell">Método</th>
-                        <th className="text-right py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Valor</th>
-                        <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden lg:table-cell">Observações</th>
-                        <th className="text-right py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Ações</th>
+                        <th className="text-center py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Data</th>
+                        <th className="text-center py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Tipo</th>
+                        <th className="text-center py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden sm:table-cell">Categoria</th>
+                        <th className="text-center py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden md:table-cell">Método</th>
+                        <th className="text-center py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Valor</th>
+                        <th className="text-center py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden lg:table-cell">Obs</th>
+                        <th className="text-center py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -797,13 +797,13 @@ export default function Transactions() {
                           key={transaction.id}
                           className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
                         >
-                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm">
+                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-center">
                             {(() => {
                               const [year, month, day] = transaction.date.split('-').map(Number);
                               return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
                             })()}
                           </td>
-                          <td className="py-3 px-2 sm:px-4">
+                          <td className="py-3 px-2 sm:px-4 text-center">
                             <span
                               className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ${
                                 transaction.transactionType === "receita"
@@ -821,15 +821,14 @@ export default function Transactions() {
                               </span>
                             </span>
                           </td>
-                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm hidden sm:table-cell">
-                            {transaction.transactionType === "receita" ? transaction.type : transaction.category}
-                            {transaction.app && (
-                              <span className="text-muted-foreground ml-1">({transaction.app})</span>
-                            )}
+                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-center hidden sm:table-cell capitalize">
+                            {transaction.transactionType === "receita" 
+                              ? (transaction.app || "—") 
+                              : (transaction.category || "—")}
                           </td>
-                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
-                            <div className="flex flex-col">
-                              <span>{transaction.transactionType === "receita" ? transaction.receive_method : transaction.payment_method}</span>
+                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-muted-foreground text-center hidden md:table-cell">
+                            <div className="flex flex-col items-center">
+                              <span className="capitalize">{transaction.transactionType === "receita" ? (transaction.receive_method || "—") : (transaction.payment_method || "—")}</span>
                               {transaction.transactionType === "despesa" && transaction.total_installments && transaction.total_installments > 1 && (
                                 <span className="text-xs text-primary">
                                   {transaction.current_installment}/{transaction.total_installments}x
@@ -838,19 +837,19 @@ export default function Transactions() {
                             </div>
                           </td>
                           <td
-                            className={`py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-right ${
+                            className={`py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-center ${
                               transaction.transactionType === "receita" ? "text-success" : "text-destructive"
                             }`}
                           >
                             {transaction.transactionType === "receita" ? "+" : "-"}R$ {Number(transaction.amount).toFixed(2)}
                           </td>
-                          <td className="py-3 px-2 sm:px-4 text-xs text-muted-foreground hidden lg:table-cell max-w-[200px]">
+                          <td className="py-3 px-2 sm:px-4 text-xs text-muted-foreground text-center hidden lg:table-cell max-w-[150px]">
                             <span className="truncate block" title={transaction.notes || undefined}>
                               {transaction.notes || "—"}
                             </span>
                           </td>
-                          <td className="py-3 px-2 sm:px-4 text-right">
-                            <div className="flex items-center justify-end gap-0.5 sm:gap-1">
+                          <td className="py-3 px-2 sm:px-4 text-center">
+                            <div className="flex items-center justify-center gap-0.5 sm:gap-1">
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
