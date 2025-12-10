@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,11 +27,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Calendar, Car } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Car, CalendarDays, Repeat } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRecurringExpenses, calculateDailyRecurringAmount } from "@/hooks/useRecurringExpenses";
+import { useRecurringExpenses, calculateDailyRecurringAmount, RecurringExpense } from "@/hooks/useRecurringExpenses";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
 
 export default function RecurringExpenses() {
   const { user } = useAuth();
@@ -37,39 +45,48 @@ export default function RecurringExpenses() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [editingExpense, setEditingExpense] = useState<RecurringExpense | null>(null);
 
   // Form state
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState("");
+  const [recurrenceType, setRecurrenceType] = useState<"single" | "monthly">("monthly");
+  const [recurrenceDay, setRecurrenceDay] = useState<string>("");
 
   const resetForm = () => {
     setName("");
     setAmount("");
     setStartDate(format(new Date(), "yyyy-MM-dd"));
     setEndDate("");
+    setRecurrenceType("monthly");
+    setRecurrenceDay("");
   };
 
   const handleCreate = () => {
     if (!name || !amount || !startDate) return;
+    
     createRecurring({
       name,
       amount: parseFloat(amount),
       start_date: startDate,
       end_date: endDate || null,
+      recurrence_type: recurrenceType,
+      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
     });
     resetForm();
     setIsAddOpen(false);
   };
 
-  const handleEdit = (expense: any) => {
+  const handleEdit = (expense: RecurringExpense) => {
     setEditingExpense(expense);
     setName(expense.name);
     setAmount(expense.amount.toString());
     setStartDate(expense.start_date);
     setEndDate(expense.end_date || "");
+    setRecurrenceType(expense.recurrence_type as "single" | "monthly");
+    setRecurrenceDay(expense.recurrence_day?.toString() || "");
     setIsEditOpen(true);
   };
 
@@ -81,13 +98,15 @@ export default function RecurringExpenses() {
       amount: parseFloat(amount),
       start_date: startDate,
       end_date: endDate || null,
+      recurrence_type: recurrenceType,
+      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
     });
     resetForm();
     setEditingExpense(null);
     setIsEditOpen(false);
   };
 
-  const handleToggleActive = (expense: any) => {
+  const handleToggleActive = (expense: RecurringExpense) => {
     updateRecurring({
       id: expense.id,
       is_active: !expense.is_active,
@@ -101,6 +120,131 @@ export default function RecurringExpenses() {
   // Calculate today's recurring expenses
   const todayRecurring = calculateDailyRecurringAmount(recurringExpenses, new Date());
 
+  // Generate day options for monthly recurrence
+  const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
+
+  const ExpenseForm = ({ isEdit = false }: { isEdit?: boolean }) => (
+    <div className="space-y-4 mt-4">
+      <div className="space-y-2">
+        <Label htmlFor={isEdit ? "edit-name" : "name"}>Nome da Despesa</Label>
+        <Input
+          id={isEdit ? "edit-name" : "name"}
+          placeholder="Ex: Parcela do Carro, MEI, Aluguel"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={isEdit ? "edit-amount" : "amount"}>Valor (R$)</Label>
+        <Input
+          id={isEdit ? "edit-amount" : "amount"}
+          type="number"
+          step="0.01"
+          placeholder="0,00"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <Label>Tipo de Recorrência</Label>
+        <RadioGroup 
+          value={recurrenceType} 
+          onValueChange={(value: "single" | "monthly") => setRecurrenceType(value)}
+          className="grid grid-cols-2 gap-3"
+        >
+          <div className="relative">
+            <RadioGroupItem value="single" id={isEdit ? "edit-single" : "single"} className="peer sr-only" />
+            <Label 
+              htmlFor={isEdit ? "edit-single" : "single"} 
+              className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-muted cursor-pointer hover:bg-muted/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10"
+            >
+              <CalendarDays className="w-5 h-5" />
+              <span className="text-sm font-medium">Único Dia</span>
+              <span className="text-xs text-muted-foreground text-center">Apenas uma data específica</span>
+            </Label>
+          </div>
+          <div className="relative">
+            <RadioGroupItem value="monthly" id={isEdit ? "edit-monthly" : "monthly"} className="peer sr-only" />
+            <Label 
+              htmlFor={isEdit ? "edit-monthly" : "monthly"} 
+              className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-muted cursor-pointer hover:bg-muted/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10"
+            >
+              <Repeat className="w-5 h-5" />
+              <span className="text-sm font-medium">Mensal</span>
+              <span className="text-xs text-muted-foreground text-center">Repete todo mês</span>
+            </Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      {recurrenceType === "single" ? (
+        <div className="space-y-2">
+          <Label htmlFor={isEdit ? "edit-singleDate" : "singleDate"}>Data da Despesa</Label>
+          <Input
+            id={isEdit ? "edit-singleDate" : "singleDate"}
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            A despesa será contabilizada apenas nesta data
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor={isEdit ? "edit-recurrenceDay" : "recurrenceDay"}>Dia do Mês</Label>
+            <Select value={recurrenceDay} onValueChange={setRecurrenceDay}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o dia" />
+              </SelectTrigger>
+              <SelectContent>
+                {dayOptions.map((day) => (
+                  <SelectItem key={day} value={day.toString()}>
+                    Dia {day}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              O dia do mês em que a despesa é cobrada (ex: MEI dia 20)
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor={isEdit ? "edit-startDate" : "startDate"}>Data de Início</Label>
+              <Input
+                id={isEdit ? "edit-startDate" : "startDate"}
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={isEdit ? "edit-endDate" : "endDate"}>Término (opcional)</Label>
+              <Input
+                id={isEdit ? "edit-endDate" : "endDate"}
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O valor será dividido por 30 dias e somado diariamente aos seus gastos
+          </p>
+        </>
+      )}
+
+      <Button onClick={isEdit ? handleUpdate : handleCreate} className="w-full" variant="hero">
+        {isEdit ? "Salvar Alterações" : "Adicionar"}
+      </Button>
+    </div>
+  );
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -108,7 +252,7 @@ export default function RecurringExpenses() {
         <div>
           <h1 className="text-2xl font-bold">Despesas Fixas</h1>
           <p className="text-muted-foreground">
-            Gerencie parcelas de carro, aluguel e outras despesas fixas mensais
+            Gerencie parcelas de carro, aluguel, MEI e outras despesas
           </p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -118,56 +262,11 @@ export default function RecurringExpenses() {
               Nova Despesa Fixa
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[450px]">
             <DialogHeader>
               <DialogTitle>Adicionar Despesa Fixa</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome da Despesa</Label>
-                <Input
-                  id="name"
-                  placeholder="Ex: Parcela do Carro, Aluguel"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Valor Mensal (R$)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Data de Início</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endDate">Data de Término (opcional)</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Deixe em branco para despesa sem término definido
-                </p>
-              </div>
-              <Button onClick={handleCreate} className="w-full" variant="hero">
-                Adicionar
-              </Button>
-            </div>
+            <ExpenseForm />
           </DialogContent>
         </Dialog>
       </div>
@@ -185,7 +284,7 @@ export default function RecurringExpenses() {
                 R$ {todayRecurring.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Calculado dividindo o valor mensal por 30 dias
+                Calculado dividindo despesas mensais por 30 dias
               </p>
             </div>
           </div>
@@ -222,119 +321,124 @@ export default function RecurringExpenses() {
                 Nenhuma despesa fixa cadastrada ainda.
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Adicione parcelas de carro, aluguel ou outras despesas mensais.
+                Adicione parcelas de carro, MEI, aluguel ou outras despesas.
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Valor Mensal</TableHead>
-                  <TableHead>Valor/Dia</TableHead>
-                  <TableHead>Início</TableHead>
-                  <TableHead>Término</TableHead>
-                  <TableHead>Ativo</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recurringExpenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell className="font-medium">{expense.name}</TableCell>
-                    <TableCell>
-                      R$ {expense.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="text-primary">
-                      R$ {(expense.amount / 30).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(expense.start_date + "T12:00:00"), "dd/MM/yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      {expense.end_date
-                        ? format(new Date(expense.end_date + "T12:00:00"), "dd/MM/yyyy")
-                        : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={expense.is_active}
-                        onCheckedChange={() => handleToggleActive(expense)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(expense)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(expense.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead className="hidden sm:table-cell">Dia/Data</TableHead>
+                    <TableHead>Ativo</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {recurringExpenses.map((expense) => (
+                    <TableRow key={expense.id}>
+                      <TableCell className="font-medium">{expense.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={expense.recurrence_type === "single" ? "secondary" : "default"}>
+                          {expense.recurrence_type === "single" ? (
+                            <>
+                              <CalendarDays className="w-3 h-3 mr-1" />
+                              Único
+                            </>
+                          ) : (
+                            <>
+                              <Repeat className="w-3 h-3 mr-1" />
+                              Mensal
+                            </>
+                          )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        R$ {expense.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">
+                        {expense.recurrence_type === "single" 
+                          ? format(new Date(expense.start_date + "T12:00:00"), "dd/MM/yyyy")
+                          : expense.recurrence_day 
+                            ? `Dia ${expense.recurrence_day}` 
+                            : "—"
+                        }
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={expense.is_active}
+                          onCheckedChange={() => handleToggleActive(expense)}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(expense)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(expense.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>Editar Despesa Fixa</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Nome da Despesa</Label>
-              <Input
-                id="edit-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-amount">Valor Mensal (R$)</Label>
-              <Input
-                id="edit-amount"
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-startDate">Data de Início</Label>
-              <Input
-                id="edit-startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-endDate">Data de Término (opcional)</Label>
-              <Input
-                id="edit-endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleUpdate} className="w-full" variant="hero">
-              Salvar Alterações
-            </Button>
-          </div>
+          <ExpenseForm isEdit />
         </DialogContent>
       </Dialog>
+
+      {/* Info Card */}
+      <Card variant="elevated">
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Repeat className="w-5 h-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-medium">Despesa Mensal</h4>
+                <p className="text-sm text-muted-foreground">
+                  Ideal para custos fixos que se repetem todo mês, como parcela do carro, MEI ou aluguel. 
+                  O valor é dividido por 30 dias e adicionado diariamente aos seus gastos.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-secondary/50 flex items-center justify-center shrink-0">
+                <CalendarDays className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-medium">Despesa Única</h4>
+                <p className="text-sm text-muted-foreground">
+                  Para despesas que ocorrem apenas em uma data específica, sem repetição. 
+                  O valor total é contabilizado apenas na data escolhida.
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
