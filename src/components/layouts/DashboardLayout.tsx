@@ -17,6 +17,7 @@ import {
   Crown,
   Shield,
   Book,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -113,6 +114,7 @@ export default function DashboardLayout() {
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Calendar, label: "Relatórios Semanais", path: "/dashboard/semanal" },
     { icon: Receipt, label: "Lançamentos", path: "/dashboard/lancamentos" },
+    { icon: Target, label: "Metas", path: "/dashboard/metas" },
     { icon: CreditCard, label: "Cartões", path: "/dashboard/cartoes" },
     { icon: Fuel, label: "Combustível", path: "/dashboard/combustivel" },
     { icon: Repeat, label: "Despesas Fixas", path: "/dashboard/despesas-fixas" },

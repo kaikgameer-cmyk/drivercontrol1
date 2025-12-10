@@ -35,20 +35,7 @@ interface GlobalDateFilterProps {
 
 /**
  * Componente reutilizável de filtro de datas global
- * Pode ser usado em Dashboard, Lançamentos, Combustível, etc.
- * 
- * Uso:
- * ```tsx
- * const [preset, setPreset] = useState<DatePreset>("thisMonth");
- * const [customRange, setCustomRange] = useState<DateRange>();
- * 
- * <GlobalDateFilter
- *   preset={preset}
- *   onPresetChange={setPreset}
- *   customRange={customRange}
- *   onCustomRangeChange={setCustomRange}
- * />
- * ```
+ * Pode ser usado em Dashboard, Lançamentos, Combustível, Cartões, etc.
  */
 export function GlobalDateFilter({
   preset,
@@ -58,6 +45,8 @@ export function GlobalDateFilter({
   className,
 }: GlobalDateFilterProps) {
   const [calendarOpen, setCalendarOpen] = React.useState(false);
+  // Track the temporary selection while user is picking dates
+  const [tempRange, setTempRange] = React.useState<DateRange | undefined>(customRange);
 
   const currentLabel = DATE_PRESET_OPTIONS.find((o) => o.value === preset)?.label || "Período";
   
@@ -68,6 +57,8 @@ export function GlobalDateFilter({
 
   const handlePresetClick = (newPreset: DatePreset) => {
     if (newPreset === "custom") {
+      // Initialize temp range with current custom range or undefined
+      setTempRange(customRange);
       setCalendarOpen(true);
     } else {
       onPresetChange(newPreset);
@@ -75,12 +66,23 @@ export function GlobalDateFilter({
   };
 
   const handleCustomRangeSelect = (range: DateRange | undefined) => {
-    if (range) {
+    // Always update the temporary range to show selection feedback
+    setTempRange(range);
+    
+    // Only apply and close when both dates are selected
+    if (range?.from && range?.to) {
       onCustomRangeChange?.(range);
-      if (range.from && range.to) {
-        onPresetChange("custom");
-        setCalendarOpen(false);
-      }
+      onPresetChange("custom");
+      setCalendarOpen(false);
+    }
+  };
+
+  // Reset temp range when calendar closes without completing selection
+  const handleCalendarOpenChange = (open: boolean) => {
+    setCalendarOpen(open);
+    if (!open) {
+      // Reset temp range when closing
+      setTempRange(customRange);
     }
   };
 
@@ -121,7 +123,7 @@ export function GlobalDateFilter({
       </DropdownMenu>
 
       {/* Date Range Display / Custom Picker */}
-      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+      <Popover open={calendarOpen} onOpenChange={handleCalendarOpenChange}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -147,12 +149,19 @@ export function GlobalDateFilter({
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
+        <PopoverContent className="w-auto p-0" align="end" sideOffset={4}>
+          <div className="p-3 border-b border-border">
+            <p className="text-sm text-muted-foreground">
+              {tempRange?.from && !tempRange?.to
+                ? "Selecione a data final"
+                : "Selecione o período desejado"}
+            </p>
+          </div>
           <Calendar
             initialFocus
             mode="range"
             defaultMonth={displayRange?.from}
-            selected={preset === "custom" ? customRange : displayRange}
+            selected={tempRange}
             onSelect={handleCustomRangeSelect}
             numberOfMonths={2}
             locale={ptBR}
