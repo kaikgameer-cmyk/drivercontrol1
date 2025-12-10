@@ -17,6 +17,7 @@ import SettingsPage from "./pages/Settings";
 import SubscriptionPage from "./pages/Subscription";
 import AdminPage from "./pages/Admin";
 import PlatformGuide from "./pages/PlatformGuide";
+import Goals from "./pages/Goals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
             <Route index element={<Dashboard />} />
             <Route path="semanal" element={<WeeklyReports />} />
             <Route path="lancamentos" element={<Transactions />} />
+            <Route path="metas" element={<Goals />} />
             <Route path="cartoes" element={<CreditCards />} />
             <Route path="combustivel" element={<FuelControl />} />
             <Route path="despesas-fixas" element={<RecurringExpenses />} />

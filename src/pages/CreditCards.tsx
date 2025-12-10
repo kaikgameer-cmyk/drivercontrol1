@@ -21,9 +21,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useInvalidateFinancialData } from "@/hooks/useInvalidateFinancialData";
-import { startOfMonth, endOfMonth, format, addMonths, subMonths, differenceInDays, isSameMonth } from "date-fns";
+import { startOfMonth, endOfMonth, format, addMonths, subMonths, differenceInDays, isSameMonth, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { GlobalDateFilter } from "@/components/GlobalDateFilter";
+import { DatePreset, useDateFilterPresets } from "@/hooks/useDateFilterPresets";
+import { DateRange } from "react-day-picker";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 export default function CreditCards() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -33,20 +37,18 @@ export default function CreditCards() {
   const [creditLimit, setCreditLimit] = useState("");
   const [bestPurchaseDay, setBestPurchaseDay] = useState("");
   const [dueDay, setDueDay] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  
+  // Global date filter state
+  const [preset, setPreset] = useState<DatePreset>("thisMonth");
+  const [customRange, setCustomRange] = useState<DateRange>();
+  const { dateRange, formattedRange } = useDateFilterPresets(preset, customRange);
   
   const { user } = useAuth();
   const { toast } = useToast();
   const { invalidateAll } = useInvalidateFinancialData();
 
-  const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
   const currentMonthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const selectedMonthKey = format(selectedMonth, "yyyy-MM");
-
-  const goToPreviousMonth = () => setSelectedMonth(prev => subMonths(prev, 1));
-  const goToNextMonth = () => setSelectedMonth(prev => addMonths(prev, 1));
-  const goToCurrentMonth = () => setSelectedMonth(new Date());
+  const selectedMonthKey = format(dateRange.from || new Date(), "yyyy-MM");
 
   // Fetch all credit cards
   const { data: creditCards = [], isLoading } = useQuery({
@@ -63,24 +65,22 @@ export default function CreditCards() {
     },
     enabled: !!user,
   });
-
-  // Fetch expenses for selected month (for display)
   const { data: cardExpenses = [] } = useQuery({
-    queryKey: ["card_expenses", user?.id, monthStart, monthEnd],
+    queryKey: ["card_expenses", user?.id, formattedRange.from, formattedRange.to],
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from("expenses")
         .select("id, credit_card_id, amount, date, category, notes, current_installment, total_installments")
         .eq("user_id", user.id)
-        .gte("date", monthStart)
-        .lte("date", monthEnd)
+        .gte("date", formattedRange.from)
+        .lte("date", formattedRange.to)
         .not("credit_card_id", "is", null)
         .order("date", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !!formattedRange.from,
   });
 
   // Fetch ALL credit card expenses from current month onwards (for limit calculation)
@@ -117,23 +117,23 @@ export default function CreditCards() {
     enabled: !!user,
   });
 
-  // Fetch fuel logs for selected month (for display in card bills)
+  // Fetch fuel logs for selected period (for display in card bills)
   const { data: fuelLogsForMonth = [] } = useQuery({
-    queryKey: ["fuel_logs_for_month", user?.id, monthStart, monthEnd],
+    queryKey: ["fuel_logs_for_month", user?.id, formattedRange.from, formattedRange.to],
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from("fuel_logs")
         .select("id, credit_card_id, total_value, date, station, fuel_type, liters")
         .eq("user_id", user.id)
-        .gte("date", monthStart)
-        .lte("date", monthEnd)
+        .gte("date", formattedRange.from)
+        .lte("date", formattedRange.to)
         .not("credit_card_id", "is", null)
         .order("date", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !!formattedRange.from,
   });
 
   // Fetch paid bills
@@ -352,24 +352,14 @@ export default function CreditCards() {
             Gerencie seus cartões e acompanhe suas faturas
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Month Selector */}
-          <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPreviousMonth}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="h-8 px-3 font-medium capitalize min-w-[120px]"
-              onClick={goToCurrentMonth}
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              {format(selectedMonth, "MMM yyyy", { locale: ptBR })}
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextMonth}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Date Filter */}
+          <GlobalDateFilter
+            preset={preset}
+            onPresetChange={setPreset}
+            customRange={customRange}
+            onCustomRangeChange={setCustomRange}
+          />
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="hero" size="lg">
@@ -521,7 +511,7 @@ export default function CreditCards() {
 
               // Calculate due date alert
               const today = new Date();
-              const isCurrentMonth = isSameMonth(selectedMonth, today);
+              const isCurrentMonth = isSameMonth(dateRange.from || new Date(), today);
               let daysUntilDue = 0;
               let isDueSoon = false;
               let isOverdue = false;
@@ -621,7 +611,7 @@ export default function CreditCards() {
                           <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
                             <div className="flex items-center gap-2 text-sm">
                               <Receipt className="w-4 h-4 text-primary" />
-                              <span>Fatura de {format(selectedMonth, "MMMM", { locale: ptBR })}</span>
+                              <span>Lançamentos do período</span>
                               <span className="text-muted-foreground">({cardExpensesList.length + cardFuelLogs.length} lançamentos)</span>
                             </div>
                             <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
