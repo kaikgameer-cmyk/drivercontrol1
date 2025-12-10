@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Target, TrendingUp, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Target, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface DayData {
   date: string;
@@ -15,13 +18,16 @@ interface PeriodGoalCardProps {
 }
 
 /**
- * Card component displaying goals summary for a multi-day period
- * Shows total goal vs total revenue with daily breakdown
+ * Compact card component displaying goals summary for a multi-day period
+ * Shows total goal vs total revenue with collapsible daily breakdown
  */
 export function PeriodGoalCard({ days, periodLabel }: PeriodGoalCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const totalGoal = days.reduce((sum, day) => sum + (day.goal || 0), 0);
   const totalRevenue = days.reduce((sum, day) => sum + day.revenue, 0);
   const daysWithGoal = days.filter(day => day.goal !== null && day.goal > 0).length;
+  const daysWithoutGoal = days.length - daysWithGoal;
   const percentage = totalGoal > 0 ? Math.min((totalRevenue / totalGoal) * 100, 100) : 0;
   const achieved = totalGoal > 0 && totalRevenue >= totalGoal;
 
@@ -40,16 +46,18 @@ export function PeriodGoalCard({ days, periodLabel }: PeriodGoalCardProps) {
   if (daysWithGoal === 0) {
     return (
       <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Metas do Período
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">
-            Nenhuma meta definida para este período
-          </p>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Target className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Metas do Período</p>
+              <p className="text-xs text-muted-foreground">
+                Nenhuma meta definida para este período
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
@@ -60,76 +68,121 @@ export function PeriodGoalCard({ days, periodLabel }: PeriodGoalCardProps) {
       "bg-card border-border transition-all",
       achieved && "border-green-500/50 bg-green-500/5"
     )}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <TrendingUp className="h-4 w-4" />
-          Resumo de Metas - {periodLabel}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Summary */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Meta Total</p>
-            <p className="text-xl font-semibold text-foreground">{formatCurrency(totalGoal)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Faturado Total</p>
-            <p className="text-xl font-semibold text-foreground">{formatCurrency(totalRevenue)}</p>
-          </div>
-        </div>
+      <CardContent className="p-4">
+        <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+          {/* Compact Summary */}
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                  achieved ? "bg-green-500/20" : "bg-primary/10"
+                )}>
+                  <TrendingUp className={cn(
+                    "h-5 w-5",
+                    achieved ? "text-green-500" : "text-primary"
+                  )} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{periodLabel}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {daysWithGoal} dia{daysWithGoal !== 1 ? 's' : ''} com meta
+                    {daysWithoutGoal > 0 && `, ${daysWithoutGoal} sem`}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={cn(
+                  "text-lg font-bold",
+                  achieved ? "text-green-500" : "text-foreground"
+                )}>
+                  {percentage.toFixed(0)}%
+                </p>
+                <p className="text-xs text-muted-foreground">da meta</p>
+              </div>
+            </div>
 
-        <Progress value={percentage} className="h-3" />
-
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {percentage.toFixed(0)}% da meta ({daysWithGoal} dias com meta)
-          </span>
-          <span className={cn(
-            "font-medium",
-            achieved ? "text-green-500" : "text-red-500"
-          )}>
-            {achieved ? '✅ Meta batida' : '❌ Meta não batida'}
-          </span>
-        </div>
-
-        {/* Daily breakdown */}
-        <div className="border-t border-border pt-3 mt-3">
-          <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            Detalhamento por dia
-          </p>
-          <div className="space-y-1.5 max-h-32 overflow-y-auto">
-            {days.map((day) => {
-              const dayPercentage = day.goal && day.goal > 0 
-                ? (day.revenue / day.goal) * 100 
-                : 0;
-              const dayAchieved = day.goal && day.revenue >= day.goal;
-              
-              return (
-                <div key={day.date} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{formatDate(day.date)}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">
-                      {day.goal ? formatCurrency(day.goal) : 'Sem meta'}
-                    </span>
-                    <span className="text-foreground font-medium">
-                      {formatCurrency(day.revenue)}
-                    </span>
-                    {day.goal && day.goal > 0 && (
-                      <span className={cn(
-                        "text-xs",
-                        dayAchieved ? "text-green-500" : "text-red-500"
-                      )}>
-                        {dayPercentage.toFixed(0)}%
-                      </span>
-                    )}
+            {/* Progress and Stats */}
+            <div className="space-y-2">
+              <Progress value={percentage} className="h-2" />
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <span className="text-muted-foreground">Meta: </span>
+                    <span className="font-medium">{formatCurrency(totalGoal)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Faturado: </span>
+                    <span className="font-medium">{formatCurrency(totalRevenue)}</span>
                   </div>
                 </div>
-              );
-            })}
+                <span className={cn(
+                  "font-medium",
+                  achieved ? "text-green-500" : "text-red-500"
+                )}>
+                  {achieved ? '✓ Batida' : '✗ Não batida'}
+                </span>
+              </div>
+            </div>
+
+            {/* Toggle Button */}
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full h-7 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="h-3 w-3 mr-1" />
+                    Ocultar detalhamento
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3 mr-1" />
+                    Ver detalhamento por dia
+                  </>
+                )}
+              </Button>
+            </CollapsibleTrigger>
           </div>
-        </div>
+
+          {/* Collapsible Daily Breakdown */}
+          <CollapsibleContent>
+            <div className="border-t border-border pt-3 mt-2">
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {days.map((day) => {
+                  const dayPercentage = day.goal && day.goal > 0 
+                    ? (day.revenue / day.goal) * 100 
+                    : 0;
+                  const dayAchieved = day.goal && day.revenue >= day.goal;
+                  
+                  return (
+                    <div key={day.date} className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-muted/50">
+                      <span className="text-muted-foreground font-medium">{formatDate(day.date)}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">
+                          {day.goal ? formatCurrency(day.goal) : 'Sem meta'}
+                        </span>
+                        <span className="text-foreground font-medium min-w-[70px] text-right">
+                          {formatCurrency(day.revenue)}
+                        </span>
+                        {day.goal && day.goal > 0 && (
+                          <span className={cn(
+                            "text-xs min-w-[40px] text-right",
+                            dayAchieved ? "text-green-500" : "text-red-500"
+                          )}>
+                            {dayPercentage.toFixed(0)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );
