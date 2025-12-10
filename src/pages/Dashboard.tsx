@@ -218,29 +218,27 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Goals Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {isSingleDay ? (
-          <DailyGoalCard
-            goal={currentDayGoal}
-            revenue={totalRevenue}
-            label={`Meta de ${format(periodStart, "dd/MM/yyyy")}`}
-          />
-        ) : (
-          <PeriodGoalCard
-            days={periodGoalsData}
-            periodLabel={
-              preset === "last7days"
-                ? "Últimos 7 dias"
-                : preset === "last30days"
-                ? "Últimos 30 dias"
-                : preset === "thisMonth"
-                ? "Este mês"
-                : "Período selecionado"
-            }
-          />
-        )}
-      </div>
+      {/* Goals Section - Compact */}
+      {isSingleDay ? (
+        <DailyGoalCard
+          goal={currentDayGoal}
+          revenue={totalRevenue}
+          label={`Meta de ${format(periodStart, "dd/MM/yyyy")}`}
+        />
+      ) : (
+        <PeriodGoalCard
+          days={periodGoalsData}
+          periodLabel={
+            preset === "last7days"
+              ? "Últimos 7 dias"
+              : preset === "last30days"
+              ? "Últimos 30 dias"
+              : preset === "thisMonth"
+              ? "Este mês"
+              : "Período selecionado"
+          }
+        />
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

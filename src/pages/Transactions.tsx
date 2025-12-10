@@ -787,6 +787,7 @@ export default function Transactions() {
                         <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden sm:table-cell">Categoria</th>
                         <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden md:table-cell">Método</th>
                         <th className="text-right py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Valor</th>
+                        <th className="text-left py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground hidden lg:table-cell">Observações</th>
                         <th className="text-right py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">Ações</th>
                       </tr>
                     </thead>
@@ -842,6 +843,11 @@ export default function Transactions() {
                             }`}
                           >
                             {transaction.transactionType === "receita" ? "+" : "-"}R$ {Number(transaction.amount).toFixed(2)}
+                          </td>
+                          <td className="py-3 px-2 sm:px-4 text-xs text-muted-foreground hidden lg:table-cell max-w-[200px]">
+                            <span className="truncate block" title={transaction.notes || undefined}>
+                              {transaction.notes || "—"}
+                            </span>
                           </td>
                           <td className="py-3 px-2 sm:px-4 text-right">
                             <div className="flex items-center justify-end gap-0.5 sm:gap-1">
