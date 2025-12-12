@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,101 +29,48 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Calendar, Car, CalendarDays, Repeat } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRecurringExpenses, calculateDailyRecurringAmount, RecurringExpense } from "@/hooks/useRecurringExpenses";
+import { useRecurringExpenses, RecurringExpense } from "@/hooks/useRecurringExpenses";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 
-export default function RecurringExpenses() {
-  const { user } = useAuth();
-  const {
-    recurringExpenses,
-    isLoading,
-    createRecurring,
-    updateRecurring,
-    deleteRecurring,
-  } = useRecurringExpenses(user?.id);
+// Generate day options for monthly recurrence (outside component to avoid recreation)
+const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
 
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<RecurringExpense | null>(null);
+// Memoized form component to prevent re-renders that cause keyboard to close
+interface ExpenseFormProps {
+  isEdit: boolean;
+  name: string;
+  amount: string;
+  startDate: string;
+  endDate: string;
+  recurrenceType: "single" | "monthly";
+  recurrenceDay: string;
+  onNameChange: (value: string) => void;
+  onAmountChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  onRecurrenceTypeChange: (value: "single" | "monthly") => void;
+  onRecurrenceDayChange: (value: string) => void;
+  onSubmit: () => void;
+}
 
-  // Form state
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState("");
-  const [recurrenceType, setRecurrenceType] = useState<"single" | "monthly">("monthly");
-  const [recurrenceDay, setRecurrenceDay] = useState<string>("");
-
-  const resetForm = () => {
-    setName("");
-    setAmount("");
-    setStartDate(format(new Date(), "yyyy-MM-dd"));
-    setEndDate("");
-    setRecurrenceType("monthly");
-    setRecurrenceDay("");
-  };
-
-  const handleCreate = () => {
-    if (!name || !amount || !startDate) return;
-    
-    createRecurring({
-      name,
-      amount: parseFloat(amount),
-      start_date: startDate,
-      end_date: endDate || null,
-      recurrence_type: recurrenceType,
-      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
-    });
-    resetForm();
-    setIsAddOpen(false);
-  };
-
-  const handleEdit = (expense: RecurringExpense) => {
-    setEditingExpense(expense);
-    setName(expense.name);
-    setAmount(expense.amount.toString());
-    setStartDate(expense.start_date);
-    setEndDate(expense.end_date || "");
-    setRecurrenceType(expense.recurrence_type as "single" | "monthly");
-    setRecurrenceDay(expense.recurrence_day?.toString() || "");
-    setIsEditOpen(true);
-  };
-
-  const handleUpdate = () => {
-    if (!editingExpense || !name || !amount || !startDate) return;
-    updateRecurring({
-      id: editingExpense.id,
-      name,
-      amount: parseFloat(amount),
-      start_date: startDate,
-      end_date: endDate || null,
-      recurrence_type: recurrenceType,
-      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
-    });
-    resetForm();
-    setEditingExpense(null);
-    setIsEditOpen(false);
-  };
-
-  const handleToggleActive = (expense: RecurringExpense) => {
-    updateRecurring({
-      id: expense.id,
-      is_active: !expense.is_active,
-    });
-  };
-
-  const handleDelete = (id: string) => {
-    deleteRecurring(id);
-  };
-
-  // Calculate today's recurring expenses
-  const todayRecurring = calculateDailyRecurringAmount(recurringExpenses, new Date());
-
-  // Generate day options for monthly recurrence
-  const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
-
-  const ExpenseForm = ({ isEdit = false }: { isEdit?: boolean }) => (
+const ExpenseForm = memo(function ExpenseForm({
+  isEdit,
+  name,
+  amount,
+  startDate,
+  endDate,
+  recurrenceType,
+  recurrenceDay,
+  onNameChange,
+  onAmountChange,
+  onStartDateChange,
+  onEndDateChange,
+  onRecurrenceTypeChange,
+  onRecurrenceDayChange,
+  onSubmit,
+}: ExpenseFormProps) {
+  return (
     <div className="space-y-4 mt-4">
       <div className="space-y-2">
         <Label htmlFor={isEdit ? "edit-name" : "name"}>Nome da Despesa</Label>
@@ -131,7 +78,8 @@ export default function RecurringExpenses() {
           id={isEdit ? "edit-name" : "name"}
           placeholder="Ex: Parcela do Carro, MEI, Aluguel"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => onNameChange(e.target.value)}
+          autoComplete="off"
         />
       </div>
 
@@ -140,10 +88,12 @@ export default function RecurringExpenses() {
         <Input
           id={isEdit ? "edit-amount" : "amount"}
           type="number"
+          inputMode="decimal"
           step="0.01"
           placeholder="0,00"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => onAmountChange(e.target.value)}
+          autoComplete="off"
         />
       </div>
 
@@ -151,7 +101,7 @@ export default function RecurringExpenses() {
         <Label>Tipo de Recorrência</Label>
         <RadioGroup 
           value={recurrenceType} 
-          onValueChange={(value: "single" | "monthly") => setRecurrenceType(value)}
+          onValueChange={onRecurrenceTypeChange}
           className="grid grid-cols-2 gap-3"
         >
           <div className="relative">
@@ -186,17 +136,17 @@ export default function RecurringExpenses() {
             id={isEdit ? "edit-singleDate" : "singleDate"}
             type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => onStartDateChange(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            A despesa será contabilizada apenas nesta data
+            A despesa será contabilizada apenas nesta data, com o valor total
           </p>
         </div>
       ) : (
         <>
           <div className="space-y-2">
             <Label htmlFor={isEdit ? "edit-recurrenceDay" : "recurrenceDay"}>Dia do Mês</Label>
-            <Select value={recurrenceDay} onValueChange={setRecurrenceDay}>
+            <Select value={recurrenceDay} onValueChange={onRecurrenceDayChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o dia" />
               </SelectTrigger>
@@ -220,7 +170,7 @@ export default function RecurringExpenses() {
                 id={isEdit ? "edit-startDate" : "startDate"}
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => onStartDateChange(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -229,7 +179,7 @@ export default function RecurringExpenses() {
                 id={isEdit ? "edit-endDate" : "endDate"}
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => onEndDateChange(e.target.value)}
               />
             </div>
           </div>
@@ -239,11 +189,134 @@ export default function RecurringExpenses() {
         </>
       )}
 
-      <Button onClick={isEdit ? handleUpdate : handleCreate} className="w-full" variant="hero">
+      <Button onClick={onSubmit} className="w-full" variant="hero">
         {isEdit ? "Salvar Alterações" : "Adicionar"}
       </Button>
     </div>
   );
+});
+
+// Helper to calculate monthly expenses daily cost (excluding single-day expenses)
+function calculateMonthlyExpensesDailyCost(
+  recurringExpenses: RecurringExpense[]
+): { total: number; breakdown: { name: string; dailyAmount: number }[] } {
+  const DAYS_DIVISOR = 30;
+  const breakdown: { name: string; dailyAmount: number }[] = [];
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+
+  for (const expense of recurringExpenses) {
+    if (!expense.is_active) continue;
+    if (expense.start_date > todayStr) continue;
+    if (expense.end_date && expense.end_date < todayStr) continue;
+
+    // Only include monthly recurring expenses in daily cost calculation
+    if (expense.recurrence_type === "monthly") {
+      breakdown.push({
+        name: expense.name,
+        dailyAmount: expense.amount / DAYS_DIVISOR,
+      });
+    }
+  }
+
+  const total = breakdown.reduce((sum, item) => sum + item.dailyAmount, 0);
+  return { total, breakdown };
+}
+
+export default function RecurringExpenses() {
+  const { user } = useAuth();
+  const {
+    recurringExpenses,
+    isLoading,
+    createRecurring,
+    updateRecurring,
+    deleteRecurring,
+  } = useRecurringExpenses(user?.id);
+
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<RecurringExpense | null>(null);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState("");
+  const [recurrenceType, setRecurrenceType] = useState<"single" | "monthly">("monthly");
+  const [recurrenceDay, setRecurrenceDay] = useState<string>("");
+
+  const resetForm = useCallback(() => {
+    setName("");
+    setAmount("");
+    setStartDate(format(new Date(), "yyyy-MM-dd"));
+    setEndDate("");
+    setRecurrenceType("monthly");
+    setRecurrenceDay("");
+  }, []);
+
+  const handleCreate = useCallback(() => {
+    if (!name || !amount || !startDate) return;
+    
+    createRecurring({
+      name,
+      amount: parseFloat(amount),
+      start_date: startDate,
+      end_date: endDate || null,
+      recurrence_type: recurrenceType,
+      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
+    });
+    resetForm();
+    setIsAddOpen(false);
+  }, [name, amount, startDate, endDate, recurrenceType, recurrenceDay, createRecurring, resetForm]);
+
+  const handleEdit = useCallback((expense: RecurringExpense) => {
+    setEditingExpense(expense);
+    setName(expense.name);
+    setAmount(expense.amount.toString());
+    setStartDate(expense.start_date);
+    setEndDate(expense.end_date || "");
+    setRecurrenceType(expense.recurrence_type as "single" | "monthly");
+    setRecurrenceDay(expense.recurrence_day?.toString() || "");
+    setIsEditOpen(true);
+  }, []);
+
+  const handleUpdate = useCallback(() => {
+    if (!editingExpense || !name || !amount || !startDate) return;
+    updateRecurring({
+      id: editingExpense.id,
+      name,
+      amount: parseFloat(amount),
+      start_date: startDate,
+      end_date: endDate || null,
+      recurrence_type: recurrenceType,
+      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
+    });
+    resetForm();
+    setEditingExpense(null);
+    setIsEditOpen(false);
+  }, [editingExpense, name, amount, startDate, endDate, recurrenceType, recurrenceDay, updateRecurring, resetForm]);
+
+  const handleToggleActive = useCallback((expense: RecurringExpense) => {
+    updateRecurring({
+      id: expense.id,
+      is_active: !expense.is_active,
+    });
+  }, [updateRecurring]);
+
+  const handleDelete = useCallback((id: string) => {
+    deleteRecurring(id);
+  }, [deleteRecurring]);
+
+  // Callbacks for form inputs (memoized to prevent re-renders)
+  const handleNameChange = useCallback((value: string) => setName(value), []);
+  const handleAmountChange = useCallback((value: string) => setAmount(value), []);
+  const handleStartDateChange = useCallback((value: string) => setStartDate(value), []);
+  const handleEndDateChange = useCallback((value: string) => setEndDate(value), []);
+  const handleRecurrenceTypeChange = useCallback((value: "single" | "monthly") => setRecurrenceType(value), []);
+  const handleRecurrenceDayChange = useCallback((value: string) => setRecurrenceDay(value), []);
+
+  // Calculate only monthly expenses daily cost (not single-day expenses)
+  const monthlyExpensesDailyCost = calculateMonthlyExpensesDailyCost(recurringExpenses);
 
   return (
     <div className="p-6 space-y-6">
@@ -255,7 +328,10 @@ export default function RecurringExpenses() {
             Gerencie parcelas de carro, aluguel, MEI e outras despesas
           </p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <Dialog open={isAddOpen} onOpenChange={(open) => {
+          setIsAddOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
             <Button variant="hero">
               <Plus className="w-4 h-4 mr-2" />
@@ -266,12 +342,27 @@ export default function RecurringExpenses() {
             <DialogHeader>
               <DialogTitle>Adicionar Despesa Fixa</DialogTitle>
             </DialogHeader>
-            <ExpenseForm />
+            <ExpenseForm
+              isEdit={false}
+              name={name}
+              amount={amount}
+              startDate={startDate}
+              endDate={endDate}
+              recurrenceType={recurrenceType}
+              recurrenceDay={recurrenceDay}
+              onNameChange={handleNameChange}
+              onAmountChange={handleAmountChange}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              onRecurrenceTypeChange={handleRecurrenceTypeChange}
+              onRecurrenceDayChange={handleRecurrenceDayChange}
+              onSubmit={handleCreate}
+            />
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Summary Card */}
+      {/* Summary Card - Only shows monthly expenses daily cost */}
       <Card variant="elevated" className="bg-gradient-card border-primary/30">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
@@ -279,20 +370,20 @@ export default function RecurringExpenses() {
               <Car className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Custo diário das despesas fixas</p>
+              <p className="text-sm text-muted-foreground">Custo diário das despesas mensais</p>
               <p className="text-3xl font-bold text-primary">
-                R$ {todayRecurring.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                R$ {monthlyExpensesDailyCost.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Calculado dividindo despesas mensais por 30 dias
               </p>
             </div>
           </div>
-          {todayRecurring.breakdown.length > 0 && (
+          {monthlyExpensesDailyCost.breakdown.length > 0 && (
             <div className="mt-4 pt-4 border-t border-border/50">
               <p className="text-sm text-muted-foreground mb-2">Detalhamento:</p>
               <div className="space-y-1">
-                {todayRecurring.breakdown.map((item, index) => (
+                {monthlyExpensesDailyCost.breakdown.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span>{item.name}</span>
                     <span className="font-medium">
@@ -399,12 +490,33 @@ export default function RecurringExpenses() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog open={isEditOpen} onOpenChange={(open) => {
+        setIsEditOpen(open);
+        if (!open) {
+          resetForm();
+          setEditingExpense(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>Editar Despesa Fixa</DialogTitle>
           </DialogHeader>
-          <ExpenseForm isEdit />
+          <ExpenseForm
+            isEdit={true}
+            name={name}
+            amount={amount}
+            startDate={startDate}
+            endDate={endDate}
+            recurrenceType={recurrenceType}
+            recurrenceDay={recurrenceDay}
+            onNameChange={handleNameChange}
+            onAmountChange={handleAmountChange}
+            onStartDateChange={handleStartDateChange}
+            onEndDateChange={handleEndDateChange}
+            onRecurrenceTypeChange={handleRecurrenceTypeChange}
+            onRecurrenceDayChange={handleRecurrenceDayChange}
+            onSubmit={handleUpdate}
+          />
         </DialogContent>
       </Dialog>
 
@@ -432,7 +544,7 @@ export default function RecurringExpenses() {
                 <h4 className="font-medium">Despesa Única</h4>
                 <p className="text-sm text-muted-foreground">
                   Para despesas que ocorrem apenas em uma data específica, sem repetição. 
-                  O valor total é contabilizado apenas na data escolhida.
+                  O valor total é contabilizado apenas na data escolhida, sem divisão.
                 </p>
               </div>
             </div>
