@@ -1,14 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { sendAppEmail, getAppBaseUrl } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-kiwify-secret",
 };
-
-// App URL - using the current Lovable app URL
-const APP_URL = "https://drivercontrol1.lovable.app";
 
 // Event mapping to internal status
 const EVENT_STATUS_MAP: Record<string, "active" | "past_due" | "canceled"> = {
@@ -192,10 +189,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Initialize Resend
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const resend = resendApiKey ? new Resend(resendApiKey) : null;
-    console.log("Resend API configured:", resend ? "yes" : "no");
+    // Get app base URL
+    const appBaseUrl = getAppBaseUrl();
+    console.log("App base URL:", appBaseUrl);
 
     // Check if user exists
     console.log("Searching for existing user with email:", email);
@@ -262,214 +258,171 @@ serve(async (req) => {
     console.log(`✅ Subscription upserted for user ${email}: ${status}`);
 
     // Send email based on user state and subscription status
-    const shouldSendEmail = status === "active" && resend;
-    console.log("Should send email?", shouldSendEmail ? "yes" : "no", `(status: ${status}, resend configured: ${resend ? 'yes' : 'no'})`);
+    const shouldSendEmail = status === "active";
+    console.log("Should send email?", shouldSendEmail ? "yes" : "no", `(status: ${status})`);
 
-    // Email configuration from environment
-    const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "Driver Control <kaikgivaldodias@gmail.com>";
-    const isTestMode = Deno.env.get("RESEND_TEST_MODE") === "true";
-    const testEmail = "kaikgivaldodias@gmail.com";
-    
-    console.log("Email config - From:", resendFromEmail);
-    console.log("Email config - Test mode:", isTestMode ? "yes" : "no");
+    let emailSent = false;
 
     if (shouldSendEmail) {
-      // Validate customer email exists
-      if (!email) {
-        console.log("⚠️ Skipping email - no customer email in payload");
-      } else {
-        try {
-          // Determine recipient: use test email in test mode, real customer email otherwise
-          const recipientEmail = isTestMode ? testEmail : email;
-          console.log("Preparing to send email to:", recipientEmail, isTestMode ? "(TEST MODE - original:" + email + ")" : "");
-          
-          // For new users, generate password reset link instead of sending plain text password
-          let resetLink = '';
-          if (isNewUser) {
-            try {
-              const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
-                type: 'recovery',
-                email: email,
-                options: {
-                  redirectTo: `${APP_URL}/login`,
-                },
-              });
+      try {
+        // For new users, generate password reset link
+        let resetLink = '';
+        if (isNewUser) {
+          try {
+            const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+              type: 'recovery',
+              email: email,
+              options: {
+                redirectTo: `${appBaseUrl}/login`,
+              },
+            });
 
-              if (resetError) {
-                console.error("Error generating password reset link:", resetError);
-              } else {
-                resetLink = resetData?.properties?.action_link || '';
-                console.log("Generated password reset link for new user");
-              }
-            } catch (linkError) {
-              console.error("Exception generating password reset link:", linkError);
+            if (resetError) {
+              console.error("Error generating password reset link:", resetError);
+            } else {
+              resetLink = resetData?.properties?.action_link || '';
+              console.log("Generated password reset link for new user");
             }
+          } catch (linkError) {
+            console.error("Exception generating password reset link:", linkError);
           }
+        }
 
-          const emailPayload = {
-            from: resendFromEmail,
-            to: [recipientEmail],
-            subject: isNewUser ? "Bem-vindo ao Driver Control! 🚗" : "Sua assinatura está ativa! 🚗",
-            html: isNewUser ? `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 40px 20px;">
-              <div style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 16px; padding: 40px; border: 1px solid #333;">
-                <div style="text-align: center; margin-bottom: 32px;">
-                  <h1 style="color: #facc15; margin: 0; font-size: 28px;">🚗 Driver Control</h1>
-                </div>
-                
-                <h2 style="color: #ffffff; margin-bottom: 24px;">Olá${name !== email?.split("@")[0] ? `, ${name}` : ''}!</h2>
-                
-                <p style="color: #a1a1a1; line-height: 1.6; margin-bottom: 24px;">
-                  Sua assinatura foi confirmada com sucesso! Clique no botão abaixo para definir sua senha e começar a gerenciar suas finanças como motorista de aplicativo.
-                </p>
-                
-                <div style="background-color: #262626; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-                  <h3 style="color: #facc15; margin: 0 0 16px 0; font-size: 16px;">📧 Seu email de acesso:</h3>
-                  <p style="margin: 8px 0; color: #ffffff;"><strong>Email:</strong> ${email}</p>
-                </div>
-                
-                <div style="background-color: #262626; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-                  <h3 style="color: #facc15; margin: 0 0 16px 0; font-size: 16px;">📋 Detalhes do seu plano:</h3>
-                  <p style="margin: 8px 0; color: #ffffff;"><strong>Plano:</strong> ${planName}</p>
-                  <p style="margin: 8px 0; color: #ffffff;"><strong>Status:</strong> Ativo ✅</p>
-                </div>
-                
-                <div style="text-align: center; margin: 32px 0;">
-                  <a href="${resetLink || APP_URL + '/login'}" style="display: inline-block; background-color: #facc15; color: #0a0a0a; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                    ${resetLink ? 'Definir Minha Senha' : 'Acessar o Painel'}
-                  </a>
-                </div>
-                
-                <p style="color: #a1a1a1; line-height: 1.6; font-size: 14px;">
-                  <strong>Importante:</strong> ${resetLink ? 'Este link expira em 24 horas. Se você não solicitou esta conta, ignore este email.' : 'Use a opção "Esqueci minha senha" para definir sua senha de acesso.'}
-                </p>
-                
-                <hr style="border: none; border-top: 1px solid #333; margin: 32px 0;">
-                
-                <p style="color: #666; font-size: 12px; text-align: center; margin: 0;">
-                  © ${new Date().getFullYear()} Driver Control. Todos os direitos reservados.<br>
-                  <a href="${APP_URL}" style="color: #facc15; text-decoration: none;">${APP_URL}</a>
-                </p>
+        const emailHtml = isNewUser ? `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 40px 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 16px; padding: 40px; border: 1px solid #333;">
+              <div style="text-align: center; margin-bottom: 32px;">
+                <h1 style="color: #facc15; margin: 0; font-size: 28px;">🚗 Driver Control</h1>
               </div>
-            </body>
-            </html>
-          ` : `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 40px 20px;">
-              <div style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 16px; padding: 40px; border: 1px solid #333;">
-                <div style="text-align: center; margin-bottom: 32px;">
-                  <h1 style="color: #facc15; margin: 0; font-size: 28px;">🚗 Driver Control</h1>
-                </div>
-                
-                <h2 style="color: #ffffff; margin-bottom: 24px;">Olá${name !== email?.split("@")[0] ? `, ${name}` : ''}!</h2>
-                
-                <p style="color: #a1a1a1; line-height: 1.6; margin-bottom: 24px;">
-                  Sua assinatura do Driver Control está ativa! Continue gerenciando suas finanças com facilidade.
-                </p>
-                
-                <div style="background-color: #262626; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-                  <h3 style="color: #facc15; margin: 0 0 16px 0; font-size: 16px;">📋 Detalhes do seu plano:</h3>
-                  <p style="margin: 8px 0; color: #ffffff;"><strong>Plano:</strong> ${planName}</p>
-                  <p style="margin: 8px 0; color: #ffffff;"><strong>Status:</strong> Ativo ✅</p>
-                  <p style="margin: 8px 0; color: #ffffff;"><strong>Próxima renovação:</strong> ${currentPeriodEnd.toLocaleDateString('pt-BR')}</p>
-                </div>
-                
-                <div style="text-align: center; margin: 32px 0;">
-                  <a href="${APP_URL}/login" style="display: inline-block; background-color: #facc15; color: #0a0a0a; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                    Acessar o Painel
-                  </a>
-                </div>
-                
-                <p style="color: #a1a1a1; line-height: 1.6; font-size: 14px;">
-                  Use seu e-mail e senha cadastrados para acessar.
-                </p>
-                
-                <hr style="border: none; border-top: 1px solid #333; margin: 32px 0;">
-                
-                <p style="color: #666; font-size: 12px; text-align: center; margin: 0;">
-                  © ${new Date().getFullYear()} Driver Control. Todos os direitos reservados.<br>
-                  <a href="${APP_URL}" style="color: #facc15; text-decoration: none;">${APP_URL}</a>
-                </p>
+              
+              <h2 style="color: #ffffff; margin-bottom: 24px;">Olá${name !== email?.split("@")[0] ? `, ${name}` : ''}!</h2>
+              
+              <p style="color: #a1a1a1; line-height: 1.6; margin-bottom: 24px;">
+                Sua assinatura foi confirmada com sucesso! Clique no botão abaixo para definir sua senha e começar a gerenciar suas finanças como motorista de aplicativo.
+              </p>
+              
+              <div style="background-color: #262626; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                <h3 style="color: #facc15; margin: 0 0 16px 0; font-size: 16px;">📧 Seu email de acesso:</h3>
+                <p style="margin: 8px 0; color: #ffffff;"><strong>Email:</strong> ${email}</p>
               </div>
-            </body>
-            </html>
-          `,
-        };
-        
-        // Send email and extract only safe data from response
-        const emailResult = await resend!.emails.send(emailPayload);
-        
-        // Only extract safe, serializable properties
-        const safeResult = emailResult && typeof emailResult === 'object' 
-          ? { id: (emailResult as any).id || 'sent', error: (emailResult as any).error ? String((emailResult as any).error) : null }
-          : { id: 'sent', error: null };
-        
-        if (safeResult.error) {
-          console.log(`⚠️ Email may have failed: ${safeResult.error}`);
-        } else {
-          console.log(`✅ Email sent successfully (ID: ${safeResult.id}) to ${email}`);
-        }
-        
-      } catch (emailError: unknown) {
-        // Safely extract error information without any circular references
-        let errorMessage = "Unknown error";
-        let errorName = "Unknown";
-        
-        if (emailError instanceof Error) {
-          errorMessage = emailError.message;
-          errorName = emailError.name;
-        } else if (emailError && typeof emailError === 'object') {
-          // Handle Resend's special error objects
-          const errObj = emailError as Record<string, unknown>;
-          errorMessage = String(errObj.message || errObj.error || errObj.statusText || JSON.stringify(Object.keys(errObj)));
-          errorName = String(errObj.name || errObj.code || 'ResendError');
-        } else {
-          errorMessage = String(emailError);
-        }
-        
-        console.error(`❌ Email error - ${errorName}: ${errorMessage}`);
-        // Don't fail the webhook if email fails - just log and continue
+              
+              <div style="background-color: #262626; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                <h3 style="color: #facc15; margin: 0 0 16px 0; font-size: 16px;">📋 Detalhes do seu plano:</h3>
+                <p style="margin: 8px 0; color: #ffffff;"><strong>Plano:</strong> ${planName}</p>
+                <p style="margin: 8px 0; color: #ffffff;"><strong>Status:</strong> Ativo ✅</p>
+              </div>
+              
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${resetLink || appBaseUrl + '/login'}" style="display: inline-block; background-color: #facc15; color: #0a0a0a; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                  ${resetLink ? 'Definir Minha Senha' : 'Acessar o Painel'}
+                </a>
+              </div>
+              
+              <p style="color: #a1a1a1; line-height: 1.6; font-size: 14px;">
+                <strong>Importante:</strong> ${resetLink ? 'Este link expira em 24 horas. Se você não solicitou esta conta, ignore este email.' : 'Use a opção "Esqueci minha senha" para definir sua senha de acesso.'}
+              </p>
+              
+              <hr style="border: none; border-top: 1px solid #333; margin: 32px 0;">
+              
+              <p style="color: #666; font-size: 12px; text-align: center; margin: 0;">
+                © ${new Date().getFullYear()} Driver Control. Todos os direitos reservados.<br>
+                <a href="${appBaseUrl}" style="color: #facc15; text-decoration: none;">${appBaseUrl}</a>
+              </p>
+            </div>
+          </body>
+          </html>
+        ` : `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 40px 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 16px; padding: 40px; border: 1px solid #333;">
+              <div style="text-align: center; margin-bottom: 32px;">
+                <h1 style="color: #facc15; margin: 0; font-size: 28px;">🚗 Driver Control</h1>
+              </div>
+              
+              <h2 style="color: #ffffff; margin-bottom: 24px;">Olá${name !== email?.split("@")[0] ? `, ${name}` : ''}!</h2>
+              
+              <p style="color: #a1a1a1; line-height: 1.6; margin-bottom: 24px;">
+                Sua assinatura do Driver Control está ativa! Continue gerenciando suas finanças com facilidade.
+              </p>
+              
+              <div style="background-color: #262626; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                <h3 style="color: #facc15; margin: 0 0 16px 0; font-size: 16px;">📋 Detalhes do seu plano:</h3>
+                <p style="margin: 8px 0; color: #ffffff;"><strong>Plano:</strong> ${planName}</p>
+                <p style="margin: 8px 0; color: #ffffff;"><strong>Status:</strong> Ativo ✅</p>
+                <p style="margin: 8px 0; color: #ffffff;"><strong>Próxima renovação:</strong> ${currentPeriodEnd.toLocaleDateString('pt-BR')}</p>
+              </div>
+              
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${appBaseUrl}/login" style="display: inline-block; background-color: #facc15; color: #0a0a0a; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                  Acessar o Painel
+                </a>
+              </div>
+              
+              <p style="color: #a1a1a1; line-height: 1.6; font-size: 14px;">
+                Use seu e-mail e senha cadastrados para acessar.
+              </p>
+              
+              <hr style="border: none; border-top: 1px solid #333; margin: 32px 0;">
+              
+              <p style="color: #666; font-size: 12px; text-align: center; margin: 0;">
+                © ${new Date().getFullYear()} Driver Control. Todos os direitos reservados.<br>
+                <a href="${appBaseUrl}" style="color: #facc15; text-decoration: none;">${appBaseUrl}</a>
+              </p>
+            </div>
+          </body>
+          </html>
+        `;
+
+        await sendAppEmail({
+          to: email,
+          subject: isNewUser ? "Bem-vindo ao Driver Control! 🚗" : "Sua assinatura está ativa! 🚗",
+          html: emailHtml,
+        });
+
+        emailSent = true;
+        console.log("✅ Email sent successfully");
+      } catch (emailError: any) {
+        console.error("⚠️ Failed to send email:", emailError?.message || String(emailError));
+        // Don't throw - email failure shouldn't fail the webhook
       }
-      }
-    } else {
-      console.log("Skipping email - either status is not 'active' or Resend not configured");
     }
 
-    console.log("=== WEBHOOK PROCESSED SUCCESSFULLY ===");
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: "Webhook processed successfully",
-      userId,
-      isNewUser,
-      status,
-      emailSent: shouldSendEmail,
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    // Return success response
+    console.log("=== WEBHOOK COMPLETED SUCCESSFULLY ===");
+    return new Response(
+      JSON.stringify({
+        success: true,
+        userId,
+        isNewUser,
+        status,
+        planName,
+        billingInterval,
+        emailSent,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (error: any) {
-    // Safely log error without circular references
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorName = error instanceof Error ? error.name : "Unknown";
-    console.error("❌ WEBHOOK ERROR - Name:", errorName, "- Message:", errorMessage);
-    return new Response(JSON.stringify({ 
-      error: errorMessage
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("❌ Webhook error:", error?.message || String(error));
+    return new Response(
+      JSON.stringify({ error: error?.message || "Internal server error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });

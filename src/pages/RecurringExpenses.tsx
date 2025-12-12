@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Calendar, Car, CalendarDays, Repeat } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRecurringExpenses, RecurringExpense } from "@/hooks/useRecurringExpenses";
+import { useRecurringExpenses, RecurringExpense, calculateMonthlyExpensesDailyCost } from "@/hooks/useRecurringExpenses";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 
@@ -43,13 +43,13 @@ interface ExpenseFormProps {
   amount: string;
   startDate: string;
   endDate: string;
-  recurrenceType: "single" | "monthly";
+  recurrenceType: "monthly_fixed_day" | "distributed";
   recurrenceDay: string;
   onNameChange: (value: string) => void;
   onAmountChange: (value: string) => void;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
-  onRecurrenceTypeChange: (value: "single" | "monthly") => void;
+  onRecurrenceTypeChange: (value: "monthly_fixed_day" | "distributed") => void;
   onRecurrenceDayChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -84,7 +84,9 @@ const ExpenseForm = memo(function ExpenseForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor={isEdit ? "edit-amount" : "amount"}>Valor (R$)</Label>
+        <Label htmlFor={isEdit ? "edit-amount" : "amount"}>
+          {recurrenceType === "distributed" ? "Valor Total (R$)" : "Valor (R$)"}
+        </Label>
         <Input
           id={isEdit ? "edit-amount" : "amount"}
           type="number"
@@ -102,47 +104,34 @@ const ExpenseForm = memo(function ExpenseForm({
         <RadioGroup 
           value={recurrenceType} 
           onValueChange={onRecurrenceTypeChange}
-          className="grid grid-cols-2 gap-3"
+          className="grid grid-cols-1 sm:grid-cols-2 gap-3"
         >
           <div className="relative">
-            <RadioGroupItem value="single" id={isEdit ? "edit-single" : "single"} className="peer sr-only" />
-            <Label 
-              htmlFor={isEdit ? "edit-single" : "single"} 
-              className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-muted cursor-pointer hover:bg-muted/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10"
-            >
-              <CalendarDays className="w-5 h-5" />
-              <span className="text-sm font-medium">Único Dia</span>
-              <span className="text-xs text-muted-foreground text-center">Apenas uma data específica</span>
-            </Label>
-          </div>
-          <div className="relative">
-            <RadioGroupItem value="monthly" id={isEdit ? "edit-monthly" : "monthly"} className="peer sr-only" />
+            <RadioGroupItem value="monthly_fixed_day" id={isEdit ? "edit-monthly" : "monthly"} className="peer sr-only" />
             <Label 
               htmlFor={isEdit ? "edit-monthly" : "monthly"} 
               className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-muted cursor-pointer hover:bg-muted/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10"
             >
               <Repeat className="w-5 h-5" />
-              <span className="text-sm font-medium">Mensal</span>
-              <span className="text-xs text-muted-foreground text-center">Repete todo mês</span>
+              <span className="text-sm font-medium">Mensal - Dia Fixo</span>
+              <span className="text-xs text-muted-foreground text-center">Valor total em um único dia do mês</span>
+            </Label>
+          </div>
+          <div className="relative">
+            <RadioGroupItem value="distributed" id={isEdit ? "edit-distributed" : "distributed"} className="peer sr-only" />
+            <Label 
+              htmlFor={isEdit ? "edit-distributed" : "distributed"} 
+              className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-muted cursor-pointer hover:bg-muted/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10"
+            >
+              <CalendarDays className="w-5 h-5" />
+              <span className="text-sm font-medium">Distribuída</span>
+              <span className="text-xs text-muted-foreground text-center">Rateada entre dias do período</span>
             </Label>
           </div>
         </RadioGroup>
       </div>
 
-      {recurrenceType === "single" ? (
-        <div className="space-y-2">
-          <Label htmlFor={isEdit ? "edit-singleDate" : "singleDate"}>Data da Despesa</Label>
-          <Input
-            id={isEdit ? "edit-singleDate" : "singleDate"}
-            type="date"
-            value={startDate}
-            onChange={(e) => onStartDateChange(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            A despesa será contabilizada apenas nesta data, com o valor total
-          </p>
-        </div>
-      ) : (
+      {recurrenceType === "monthly_fixed_day" ? (
         <>
           <div className="space-y-2">
             <Label htmlFor={isEdit ? "edit-recurrenceDay" : "recurrenceDay"}>Dia do Mês</Label>
@@ -184,7 +173,33 @@ const ExpenseForm = memo(function ExpenseForm({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            O valor será dividido por 30 dias e somado diariamente aos seus gastos
+            O valor total será lançado no dia escolhido de cada mês (sem divisão)
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor={isEdit ? "edit-startDate" : "startDate"}>Data Inicial</Label>
+              <Input
+                id={isEdit ? "edit-startDate" : "startDate"}
+                type="date"
+                value={startDate}
+                onChange={(e) => onStartDateChange(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={isEdit ? "edit-endDate" : "endDate"}>Data Final</Label>
+              <Input
+                id={isEdit ? "edit-endDate" : "endDate"}
+                type="date"
+                value={endDate}
+                onChange={(e) => onEndDateChange(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O valor será dividido proporcionalmente entre os dias do período selecionado
           </p>
         </>
       )}
@@ -195,33 +210,6 @@ const ExpenseForm = memo(function ExpenseForm({
     </div>
   );
 });
-
-// Helper to calculate monthly expenses daily cost (excluding single-day expenses)
-function calculateMonthlyExpensesDailyCost(
-  recurringExpenses: RecurringExpense[]
-): { total: number; breakdown: { name: string; dailyAmount: number }[] } {
-  const DAYS_DIVISOR = 30;
-  const breakdown: { name: string; dailyAmount: number }[] = [];
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
-
-  for (const expense of recurringExpenses) {
-    if (!expense.is_active) continue;
-    if (expense.start_date > todayStr) continue;
-    if (expense.end_date && expense.end_date < todayStr) continue;
-
-    // Only include monthly recurring expenses in daily cost calculation
-    if (expense.recurrence_type === "monthly") {
-      breakdown.push({
-        name: expense.name,
-        dailyAmount: expense.amount / DAYS_DIVISOR,
-      });
-    }
-  }
-
-  const total = breakdown.reduce((sum, item) => sum + item.dailyAmount, 0);
-  return { total, breakdown };
-}
 
 export default function RecurringExpenses() {
   const { user } = useAuth();
@@ -242,7 +230,7 @@ export default function RecurringExpenses() {
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState("");
-  const [recurrenceType, setRecurrenceType] = useState<"single" | "monthly">("monthly");
+  const [recurrenceType, setRecurrenceType] = useState<"monthly_fixed_day" | "distributed">("monthly_fixed_day");
   const [recurrenceDay, setRecurrenceDay] = useState<string>("");
 
   const resetForm = useCallback(() => {
@@ -250,7 +238,7 @@ export default function RecurringExpenses() {
     setAmount("");
     setStartDate(format(new Date(), "yyyy-MM-dd"));
     setEndDate("");
-    setRecurrenceType("monthly");
+    setRecurrenceType("monthly_fixed_day");
     setRecurrenceDay("");
   }, []);
 
@@ -263,7 +251,7 @@ export default function RecurringExpenses() {
       start_date: startDate,
       end_date: endDate || null,
       recurrence_type: recurrenceType,
-      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
+      recurrence_day: recurrenceType === "monthly_fixed_day" && recurrenceDay ? parseInt(recurrenceDay) : null,
     });
     resetForm();
     setIsAddOpen(false);
@@ -275,7 +263,7 @@ export default function RecurringExpenses() {
     setAmount(expense.amount.toString());
     setStartDate(expense.start_date);
     setEndDate(expense.end_date || "");
-    setRecurrenceType(expense.recurrence_type as "single" | "monthly");
+    setRecurrenceType(expense.recurrence_type);
     setRecurrenceDay(expense.recurrence_day?.toString() || "");
     setIsEditOpen(true);
   }, []);
@@ -289,7 +277,7 @@ export default function RecurringExpenses() {
       start_date: startDate,
       end_date: endDate || null,
       recurrence_type: recurrenceType,
-      recurrence_day: recurrenceType === "monthly" && recurrenceDay ? parseInt(recurrenceDay) : null,
+      recurrence_day: recurrenceType === "monthly_fixed_day" && recurrenceDay ? parseInt(recurrenceDay) : null,
     });
     resetForm();
     setEditingExpense(null);
@@ -312,11 +300,20 @@ export default function RecurringExpenses() {
   const handleAmountChange = useCallback((value: string) => setAmount(value), []);
   const handleStartDateChange = useCallback((value: string) => setStartDate(value), []);
   const handleEndDateChange = useCallback((value: string) => setEndDate(value), []);
-  const handleRecurrenceTypeChange = useCallback((value: "single" | "monthly") => setRecurrenceType(value), []);
+  const handleRecurrenceTypeChange = useCallback((value: "monthly_fixed_day" | "distributed") => setRecurrenceType(value), []);
   const handleRecurrenceDayChange = useCallback((value: string) => setRecurrenceDay(value), []);
 
-  // Calculate only monthly expenses daily cost (not single-day expenses)
+  // Calculate only monthly expenses daily cost (not distributed expenses)
   const monthlyExpensesDailyCost = calculateMonthlyExpensesDailyCost(recurringExpenses);
+
+  // Helper to calculate daily value for distributed expenses
+  const getDistributedDailyValue = (expense: RecurringExpense) => {
+    if (expense.recurrence_type !== "distributed" || !expense.end_date) return null;
+    const start = new Date(expense.start_date + "T12:00:00");
+    const end = new Date(expense.end_date + "T12:00:00");
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return expense.amount / Math.max(days, 1);
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -423,65 +420,75 @@ export default function RecurringExpenses() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Valor</TableHead>
-                    <TableHead className="hidden sm:table-cell">Dia/Data</TableHead>
+                    <TableHead className="hidden sm:table-cell">Dia/Período</TableHead>
                     <TableHead>Ativo</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recurringExpenses.map((expense) => (
-                    <TableRow key={expense.id}>
-                      <TableCell className="font-medium">{expense.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={expense.recurrence_type === "single" ? "secondary" : "default"}>
-                          {expense.recurrence_type === "single" ? (
-                            <>
-                              <CalendarDays className="w-3 h-3 mr-1" />
-                              Único
-                            </>
-                          ) : (
-                            <>
-                              <Repeat className="w-3 h-3 mr-1" />
-                              Mensal
-                            </>
-                          )}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        R$ {expense.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">
-                        {expense.recurrence_type === "single" 
-                          ? format(new Date(expense.start_date + "T12:00:00"), "dd/MM/yyyy")
-                          : expense.recurrence_day 
-                            ? `Dia ${expense.recurrence_day}` 
-                            : "—"
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={expense.is_active}
-                          onCheckedChange={() => handleToggleActive(expense)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(expense)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(expense.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {recurringExpenses.map((expense) => {
+                    const dailyValue = getDistributedDailyValue(expense);
+                    return (
+                      <TableRow key={expense.id}>
+                        <TableCell className="font-medium">{expense.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={expense.recurrence_type === "distributed" ? "secondary" : "default"}>
+                            {expense.recurrence_type === "distributed" ? (
+                              <>
+                                <CalendarDays className="w-3 h-3 mr-1" />
+                                Rateada
+                              </>
+                            ) : (
+                              <>
+                                <Repeat className="w-3 h-3 mr-1" />
+                                Mensal
+                              </>
+                            )}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            R$ {expense.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            {dailyValue && (
+                              <span className="block text-xs text-muted-foreground">
+                                ≈ R$ {dailyValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/dia
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">
+                          {expense.recurrence_type === "distributed" 
+                            ? `${format(new Date(expense.start_date + "T12:00:00"), "dd/MM")} - ${expense.end_date ? format(new Date(expense.end_date + "T12:00:00"), "dd/MM") : "—"}`
+                            : expense.recurrence_day 
+                              ? `Dia ${expense.recurrence_day}` 
+                              : "—"
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={expense.is_active}
+                            onCheckedChange={() => handleToggleActive(expense)}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(expense)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(expense.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -529,10 +536,10 @@ export default function RecurringExpenses() {
                 <Repeat className="w-5 h-5 text-primary" />
               </div>
               <div className="space-y-1">
-                <h4 className="font-medium">Despesa Mensal</h4>
+                <h4 className="font-medium">Mensal - Dia Fixo</h4>
                 <p className="text-sm text-muted-foreground">
-                  Ideal para custos fixos que se repetem todo mês, como parcela do carro, MEI ou aluguel. 
-                  O valor é dividido por 30 dias e adicionado diariamente aos seus gastos.
+                  Ideal para despesas que vencem em um dia específico do mês, como MEI (dia 20), parcela do carro (dia 10), etc. 
+                  O valor total é lançado apenas naquele dia, sem divisão.
                 </p>
               </div>
             </div>
@@ -541,10 +548,10 @@ export default function RecurringExpenses() {
                 <CalendarDays className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="space-y-1">
-                <h4 className="font-medium">Despesa Única</h4>
+                <h4 className="font-medium">Distribuída (Rateada)</h4>
                 <p className="text-sm text-muted-foreground">
-                  Para despesas que ocorrem apenas em uma data específica, sem repetição. 
-                  O valor total é contabilizado apenas na data escolhida, sem divisão.
+                  Para despesas que devem ser distribuídas entre um período, como aluguel de carro por semana. 
+                  O valor total é dividido proporcionalmente pelos dias do intervalo.
                 </p>
               </div>
             </div>
