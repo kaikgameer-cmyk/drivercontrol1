@@ -19,7 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCombinedExpenses } from "@/hooks/useCombinedExpenses";
-import { useRecurringExpenses, calculateDailyRecurringAmount } from "@/hooks/useRecurringExpenses";
+import { useRecurringExpenses, calculateDailyRecurringAmount, calculatePeriodRecurringAmount } from "@/hooks/useRecurringExpenses";
 import { ProfitComparisonChart } from "@/components/charts/ProfitComparisonChart";
 import { ExpensesByCategoryChart } from "@/components/charts/ExpensesByCategoryChart";
 import { DailyGoalCard } from "@/components/goals/DailyGoalCard";
@@ -78,11 +78,9 @@ export default function Dashboard() {
   // Fetch daily goals
   const { getGoalForDate, getGoalsForPeriod } = useDailyGoals();
 
-  // Calculate recurring expenses for the period
+  // Calculate recurring expenses for the period (correctly handles single-day vs monthly)
   const daysInPeriod = eachDayOfInterval({ start: periodStart, end: periodEnd }).length;
-  const periodRecurringTotal = recurringExpenses
-    .filter((e) => e.is_active && e.start_date <= formattedRange.to && (!e.end_date || e.end_date >= formattedRange.from))
-    .reduce((sum, e) => sum + (e.amount / 30) * daysInPeriod, 0);
+  const periodRecurringTotal = calculatePeriodRecurringAmount(recurringExpenses, periodStart, periodEnd);
 
   // Calculate KPIs
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0);
