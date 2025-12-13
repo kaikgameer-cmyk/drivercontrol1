@@ -6,8 +6,8 @@
  * e precisam definir sua senha de acesso ao Driver Control.
  * 
  * Recebe parâmetros via URL:
- * - email: email do usuário (pré-preenchido)
- * - token: token de recuperação (opcional, se vier do link do Supabase)
+ * - token: token de criação de senha (obrigatório para definir senha)
+ * - email: email do usuário (opcional, para pré-preencher o campo)
  */
 
 import { useState, useEffect } from "react";
@@ -16,18 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Lock, CheckCircle2, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import { z } from "zod";
 
 // Zod schemas for validation
-const emailSchema = z.string()
-  .trim()
-  .min(1, "Email é obrigatório")
-  .email("Formato de email inválido");
-
 const passwordSchema = z.object({
   password: z.string()
     .min(8, "Senha deve ter no mínimo 8 caracteres")
@@ -38,88 +32,105 @@ const passwordSchema = z.object({
   path: ["confirmPassword"],
 });
 
-type PageState = "form" | "success" | "error";
+type PageState = "loading" | "form" | "success" | "error" | "invalid";
+
+interface TokenValidation {
+  valid: boolean;
+  email: string;
+  type: string;
+  userId: string;
+}
 
 export default function DefinirSenha() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   // State
-  const [pageState, setPageState] = useState<PageState>("form");
-  const [isLoading, setIsLoading] = useState(false);
+  const [pageState, setPageState] = useState<PageState>("loading");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({});
   const [errorMessage, setErrorMessage] = useState("");
-  const [hasRecoverySession, setHasRecoverySession] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
-  // Check for email in URL params and recovery token
+  // Validate token on page load
   useEffect(() => {
-    const emailParam = searchParams.get("email");
-    if (emailParam) {
-      setEmail(decodeURIComponent(emailParam));
-    }
+    const validateToken = async () => {
+      const tokenParam = searchParams.get("token");
+      const emailParam = searchParams.get("email");
 
-    // Check for Supabase recovery token in hash (from email link)
-    const checkRecoveryToken = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get("access_token");
-      const tokenType = hashParams.get("type");
-      const refreshToken = hashParams.get("refresh_token");
+      console.log("[DEFINIR-SENHA] Checking URL params...");
+      console.log("  - Token:", tokenParam ? "present" : "none");
+      console.log("  - Email:", emailParam || "none");
 
-      console.log("[DEFINIR-SENHA] Checking for recovery token...");
-      console.log("[DEFINIR-SENHA] Hash params - token:", accessToken ? "present" : "none", "type:", tokenType);
-
-      if (accessToken && tokenType === "recovery") {
-        console.log("[DEFINIR-SENHA] Recovery token detected");
-        
-        try {
-          // Try to set the session from the recovery token
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || "",
-          });
-
-          if (error) {
-            console.error("[DEFINIR-SENHA] Error setting session:", error);
-            toast({
-              title: "Link expirado",
-              description: "Este link de recuperação expirou. Solicite um novo pelo login.",
-              variant: "destructive",
-            });
-          } else if (data.session) {
-            console.log("[DEFINIR-SENHA] Session established from recovery token");
-            setHasRecoverySession(true);
-            // Pre-fill email from session
-            if (data.session.user.email) {
-              setEmail(data.session.user.email);
-            }
-          }
-        } catch (err) {
-          console.error("[DEFINIR-SENHA] Exception checking token:", err);
+      // If no token, show error state
+      if (!tokenParam) {
+        console.log("[DEFINIR-SENHA] No token provided");
+        if (emailParam) {
+          setEmail(decodeURIComponent(emailParam));
         }
+        setErrorMessage("Link inválido. Use o link enviado por e-mail para definir sua senha.");
+        setPageState("invalid");
+        return;
+      }
+
+      setToken(tokenParam);
+
+      try {
+        // Validate token via edge function
+        console.log("[DEFINIR-SENHA] Validating token...");
+        
+        const { data, error } = await supabase.functions.invoke<TokenValidation>("set-password", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: null,
+        });
+
+        // The invoke method doesn't support GET with query params directly, so we need to use fetch
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/set-password?token=${encodeURIComponent(tokenParam)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.log("[DEFINIR-SENHA] Token validation failed:", result.error);
+          setErrorMessage(result.error || "Link inválido ou expirado.");
+          setPageState("invalid");
+          return;
+        }
+
+        console.log("[DEFINIR-SENHA] Token valid for user:", result.email);
+        setEmail(result.email || "");
+        setPageState("form");
+      } catch (err: any) {
+        console.error("[DEFINIR-SENHA] Error validating token:", err);
+        setErrorMessage("Erro ao validar o link. Tente novamente.");
+        setPageState("error");
       }
     };
 
-    checkRecoveryToken();
-  }, [searchParams, toast]);
+    validateToken();
+  }, [searchParams]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     setErrorMessage("");
-
-    // Validate email
-    const emailResult = emailSchema.safeParse(email);
-    if (!emailResult.success) {
-      setErrors({ email: emailResult.error.errors[0].message });
-      return;
-    }
 
     // Validate passwords
     const passwordResult = passwordSchema.safeParse({ password, confirmPassword });
@@ -133,67 +144,51 @@ export default function DefinirSenha() {
       return;
     }
 
-    setIsLoading(true);
+    if (!token) {
+      setErrorMessage("Token não encontrado. Use o link enviado por e-mail.");
+      setPageState("error");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
-      // If we have a recovery session, update password directly
-      if (hasRecoverySession) {
-        console.log("[DEFINIR-SENHA] Updating password with recovery session");
-        const { error } = await supabase.auth.updateUser({
-          password: passwordResult.data.password,
-        });
+      console.log("[DEFINIR-SENHA] Setting password...");
 
-        if (error) {
-          console.error("[DEFINIR-SENHA] Error updating password:", error);
-          setErrorMessage("Não foi possível definir sua senha. Tente solicitar um novo link.");
-          setPageState("error");
-          return;
-        }
-
-        console.log("[DEFINIR-SENHA] Password updated successfully");
-        await supabase.auth.signOut();
-        setPageState("success");
-        return;
-      }
-
-      // Without recovery session, we need to request a password reset
-      // First, check if user exists by trying to sign in (will fail but confirms existence)
-      console.log("[DEFINIR-SENHA] No recovery session, sending password reset email");
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/definir-senha?email=${encodeURIComponent(email)}`,
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/set-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token: token,
+          newPassword: password,
+        }),
       });
 
-      if (error) {
-        console.error("[DEFINIR-SENHA] Error sending reset email:", error);
-        
-        if (error.message.includes("rate limit")) {
-          setErrorMessage("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
-        } else {
-          setErrorMessage("Não foi possível enviar o email. Verifique se o email está correto.");
-        }
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("[DEFINIR-SENHA] Error setting password:", result.error);
+        setErrorMessage(result.error || "Não foi possível definir sua senha. Tente novamente.");
         setPageState("error");
         return;
       }
 
-      // Show message that email was sent
-      toast({
-        title: "Email enviado!",
-        description: "Verifique sua caixa de entrada e clique no link para definir sua senha.",
-      });
-
+      console.log("[DEFINIR-SENHA] Password set successfully!");
       setPageState("success");
     } catch (error: any) {
       console.error("[DEFINIR-SENHA] Unexpected error:", error);
       setErrorMessage("Ocorreu um erro inesperado. Tente novamente.");
       setPageState("error");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   // Check if form is valid for submit button
-  const isFormValid = email.length > 0 && password.length >= 8 && confirmPassword.length > 0;
+  const isFormValid = password.length >= 8 && confirmPassword.length > 0;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -204,11 +199,20 @@ export default function DefinirSenha() {
             <span className="text-xl font-semibold">Driver Control</span>
           </Link>
 
+          {pageState === "loading" && (
+            <>
+              <CardTitle className="text-2xl">Validando link...</CardTitle>
+              <CardDescription>
+                Aguarde enquanto verificamos seu link de acesso.
+              </CardDescription>
+            </>
+          )}
+
           {pageState === "form" && (
             <>
               <CardTitle className="text-2xl">Criar sua senha</CardTitle>
               <CardDescription>
-                Use o e-mail que você usou na compra e crie sua senha para acessar o Driver Control.
+                Defina sua senha para acessar o Driver Control.
               </CardDescription>
             </>
           )}
@@ -222,9 +226,11 @@ export default function DefinirSenha() {
             </>
           )}
 
-          {pageState === "error" && (
+          {(pageState === "error" || pageState === "invalid") && (
             <>
-              <CardTitle className="text-2xl text-destructive">Ops! Algo deu errado</CardTitle>
+              <CardTitle className="text-2xl text-destructive">
+                {pageState === "invalid" ? "Link inválido" : "Ops! Algo deu errado"}
+              </CardTitle>
               <CardDescription>
                 {errorMessage || "Não foi possível definir sua senha."}
               </CardDescription>
@@ -233,24 +239,24 @@ export default function DefinirSenha() {
         </CardHeader>
 
         <CardContent>
+          {pageState === "loading" && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+          )}
+
           {pageState === "form" && (
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email field */}
+              {/* Email field (read-only) */}
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="seu@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={hasRecoverySession}
-                  className={errors.email ? "border-destructive" : ""}
+                  disabled
+                  className="bg-muted"
                 />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
               </div>
 
               {/* Password field */}
@@ -312,9 +318,9 @@ export default function DefinirSenha() {
                 variant="hero"
                 size="lg"
                 className="w-full"
-                disabled={isLoading || !isFormValid}
+                disabled={isSubmitting || !isFormValid}
               >
-                {isLoading ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                     Criando senha...
@@ -341,16 +347,9 @@ export default function DefinirSenha() {
                 <CheckCircle2 className="w-20 h-20 text-primary" />
               </div>
               
-              {hasRecoverySession ? (
-                <p className="text-muted-foreground">
-                  Sua senha foi criada com sucesso! Agora você pode fazer login com seu email e a senha que acabou de criar.
-                </p>
-              ) : (
-                <p className="text-muted-foreground">
-                  Enviamos um link para <strong>{email}</strong>.<br />
-                  Clique no link do email para definir sua senha.
-                </p>
-              )}
+              <p className="text-muted-foreground">
+                Sua senha foi criada com sucesso! Agora você pode fazer login com seu email e a senha que acabou de criar.
+              </p>
 
               <Button
                 variant="hero"
@@ -363,23 +362,29 @@ export default function DefinirSenha() {
             </div>
           )}
 
-          {pageState === "error" && (
+          {(pageState === "error" || pageState === "invalid") && (
             <div className="text-center space-y-6">
+              <div className="flex justify-center">
+                <AlertCircle className="w-16 h-16 text-destructive" />
+              </div>
+              
               <p className="text-muted-foreground">
                 {errorMessage}
               </p>
 
               <div className="space-y-3">
-                <Button
-                  variant="hero"
-                  className="w-full"
-                  onClick={() => {
-                    setPageState("form");
-                    setErrorMessage("");
-                  }}
-                >
-                  Tentar novamente
-                </Button>
+                {pageState === "error" && (
+                  <Button
+                    variant="hero"
+                    className="w-full"
+                    onClick={() => {
+                      setPageState("form");
+                      setErrorMessage("");
+                    }}
+                  >
+                    Tentar novamente
+                  </Button>
+                )}
 
                 <Button
                   variant="outline"

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sendAppEmail, getAppBaseUrl } from "../_shared/email.ts";
+import { generateSecureToken, getTokenExpiration } from "../_shared/tokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -276,34 +277,38 @@ serve(async (req) => {
       console.log("  - App Base URL:", appBaseUrl);
       
       try {
-        // For new users, generate password reset link so they can define their password
+        // For new users, generate custom password token and link
         let resetLink = '';
         if (isNewUser) {
           try {
-            console.log("[WEBHOOK] Novo cliente - gerando link de definição de senha...");
+            console.log("[WEBHOOK] Novo cliente - gerando token próprio de definição de senha...");
             
-            // Generate recovery link using Supabase Admin API
-            const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
-              type: 'recovery',
-              email: email,
-              options: {
-                // Redirect to definir-senha page after Supabase processes the token
-                redirectTo: `${appBaseUrl}/definir-senha`,
-              },
-            });
+            // Generate custom token and save to database
+            const token = generateSecureToken();
+            const expiresAt = getTokenExpiration(24); // 24 hours
 
-            if (resetError) {
-              console.error("[WEBHOOK] Erro ao gerar link de senha:", resetError.message || resetError);
+            const { error: tokenError } = await supabase
+              .from("password_tokens")
+              .insert({
+                user_id: userId,
+                token: token,
+                type: "signup",
+                expires_at: expiresAt.toISOString(),
+              });
+
+            if (tokenError) {
+              console.error("[WEBHOOK] Erro ao salvar token:", tokenError.message || tokenError);
               // Fallback: use direct link to definir-senha with email param
               resetLink = `${appBaseUrl}/definir-senha?email=${encodeURIComponent(email)}`;
             } else {
-              // The action_link from Supabase will redirect to our definir-senha page with the token
-              resetLink = resetData?.properties?.action_link || `${appBaseUrl}/definir-senha?email=${encodeURIComponent(email)}`;
-              console.log("[WEBHOOK] Link de senha gerado com sucesso");
-              console.log("  - Reset Link:", resetLink ? "presente (length: " + resetLink.length + ")" : "vazio");
+              // Build link using our own token (NOT Supabase's magic link)
+              resetLink = `${appBaseUrl}/definir-senha?token=${encodeURIComponent(token)}`;
+              console.log("[WEBHOOK] Token de senha gerado e salvo com sucesso");
+              console.log("  - Token expira em:", expiresAt.toISOString());
+              console.log("  - Link:", resetLink);
             }
           } catch (linkError: any) {
-            console.error("[WEBHOOK] Exceção ao gerar link de senha:", linkError?.message || String(linkError));
+            console.error("[WEBHOOK] Exceção ao gerar token de senha:", linkError?.message || String(linkError));
             // Fallback to direct link
             resetLink = `${appBaseUrl}/definir-senha?email=${encodeURIComponent(email)}`;
           }
