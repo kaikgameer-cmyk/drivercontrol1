@@ -14,13 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_card_invoices: {
+        Row: {
+          closing_date: string
+          created_at: string
+          credit_card_id: string
+          due_date: string
+          id: string
+          is_paid: boolean
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closing_date: string
+          created_at?: string
+          credit_card_id: string
+          due_date: string
+          id?: string
+          is_paid?: boolean
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closing_date?: string
+          created_at?: string
+          credit_card_id?: string
+          due_date?: string
+          id?: string
+          is_paid?: boolean
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_card_invoices_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           best_purchase_day: number | null
           brand: string | null
+          closing_day: number | null
           created_at: string
           credit_limit: number | null
           due_day: number | null
+          due_month_offset: number | null
           id: string
           last_digits: string | null
           name: string
@@ -30,9 +85,11 @@ export type Database = {
         Insert: {
           best_purchase_day?: number | null
           brand?: string | null
+          closing_day?: number | null
           created_at?: string
           credit_limit?: number | null
           due_day?: number | null
+          due_month_offset?: number | null
           id?: string
           last_digits?: string | null
           name: string
@@ -42,9 +99,11 @@ export type Database = {
         Update: {
           best_purchase_day?: number | null
           brand?: string | null
+          closing_day?: number | null
           created_at?: string
           credit_limit?: number | null
           due_day?: number | null
+          due_month_offset?: number | null
           id?: string
           last_digits?: string | null
           name?: string
@@ -91,6 +150,7 @@ export type Database = {
           fuel_log_id: string | null
           id: string
           installments: number | null
+          invoice_id: string | null
           notes: string | null
           payment_method: string | null
           total_installments: number | null
@@ -108,6 +168,7 @@ export type Database = {
           fuel_log_id?: string | null
           id?: string
           installments?: number | null
+          invoice_id?: string | null
           notes?: string | null
           payment_method?: string | null
           total_installments?: number | null
@@ -125,6 +186,7 @@ export type Database = {
           fuel_log_id?: string | null
           id?: string
           installments?: number | null
+          invoice_id?: string | null
           notes?: string | null
           payment_method?: string | null
           total_installments?: number | null
@@ -147,6 +209,13 @@ export type Database = {
             referencedRelation: "fuel_logs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expenses_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "credit_card_invoices"
+            referencedColumns: ["id"]
+          },
         ]
       }
       fuel_logs: {
@@ -156,6 +225,7 @@ export type Database = {
           date: string
           fuel_type: string
           id: string
+          invoice_id: string | null
           liters: number
           odometer_km: number | null
           payment_method: string | null
@@ -170,6 +240,7 @@ export type Database = {
           date: string
           fuel_type: string
           id?: string
+          invoice_id?: string | null
           liters: number
           odometer_km?: number | null
           payment_method?: string | null
@@ -184,6 +255,7 @@ export type Database = {
           date?: string
           fuel_type?: string
           id?: string
+          invoice_id?: string | null
           liters?: number
           odometer_km?: number | null
           payment_method?: string | null
@@ -198,6 +270,13 @@ export type Database = {
             columns: ["credit_card_id"]
             isOneToOne: false
             referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_logs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "credit_card_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -494,6 +573,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      compute_closing_date: {
+        Args: { p_closing_day: number; p_tx_date: string }
+        Returns: string
+      }
       create_fuel_expense: {
         Args: {
           p_credit_card_id?: string
@@ -515,6 +598,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      recalculate_invoice_total: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
+      }
+      resolve_or_create_invoice: {
+        Args: { p_credit_card_id: string; p_tx_date: string }
+        Returns: string
+      }
+      resolve_or_create_invoice_for_user: {
+        Args: { p_credit_card_id: string; p_tx_date: string; p_user_id: string }
+        Returns: string
       }
       update_fuel_expense: {
         Args: {
