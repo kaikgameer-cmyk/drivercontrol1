@@ -1,8 +1,6 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   DashboardFilterMode, 
-  DayPreset,
-  DAY_PRESET_OPTIONS,
   useDashboardFilter 
 } from "@/hooks/useDashboardFilter";
 import { DayModeSelector } from "./filters/DayModeSelector";
@@ -58,8 +56,6 @@ export function DashboardFilterBar({ filter }: DashboardFilterBarProps) {
           <DayModeSelector
             startDate={startDate}
             endDate={endDate}
-            currentPreset={currentDayPreset}
-            onPresetChange={applyDayPreset}
             onDateRangeChange={setDateRange}
           />
         )}
