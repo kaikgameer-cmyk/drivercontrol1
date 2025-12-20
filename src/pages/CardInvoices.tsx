@@ -38,6 +38,7 @@ import {
   Loader2,
   Receipt,
   Plus,
+  Trash2,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -201,6 +202,29 @@ export default function CardInvoices() {
     },
     onError: () => {
       toast({ title: "Erro ao registrar pagamento", variant: "destructive" });
+    },
+  });
+
+  // Delete transaction mutation
+  const deleteTransaction = useMutation({
+    mutationFn: async (transactionId: string) => {
+      if (!user) throw new Error("Não autenticado");
+      const { error } = await supabase
+        .from("credit_card_transactions")
+        .delete()
+        .eq("id", transactionId)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cc_transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["credit_card_invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["credit_cards_with_limits"] });
+      queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      toast({ title: "Lançamento excluído!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao excluir lançamento", variant: "destructive" });
     },
   });
   const handleOpenPaymentDialog = (invoice: Invoice) => {
@@ -474,18 +498,32 @@ export default function CardInvoices() {
                                     </Badge>
                                   </div>
                                 </div>
-                                <span
-                                  className={`font-medium ${
-                                    tx.type === "payment"
-                                      ? "text-success"
-                                      : tx.type === "refund"
-                                      ? "text-primary"
-                                      : "text-destructive"
-                                  }`}
-                                >
-                                  {tx.type === "payment" || tx.type === "refund" ? "-" : ""}
-                                  {formatCurrencyBRL(Math.abs(tx.amount))}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`font-medium ${
+                                      tx.type === "payment"
+                                        ? "text-success"
+                                        : tx.type === "refund"
+                                        ? "text-primary"
+                                        : "text-destructive"
+                                    }`}
+                                  >
+                                    {tx.type === "payment" || tx.type === "refund" ? "-" : ""}
+                                    {formatCurrencyBRL(Math.abs(tx.amount))}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteTransaction.mutate(tx.id);
+                                    }}
+                                    disabled={deleteTransaction.isPending}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                           </div>
