@@ -35,8 +35,9 @@ import { PlatformBreakdownCard } from "@/components/dashboard/PlatformBreakdownC
 import { PeriodPlatformBreakdownCard } from "@/components/dashboard/PeriodPlatformBreakdownCard";
 import { DailySummaryCard } from "@/components/dashboard/DailySummaryCard";
 import { useRevenueByPlatform } from "@/hooks/useRevenueByPlatform";
-import { format, eachDayOfInterval, isSameDay } from "date-fns";
+import { format, eachDayOfInterval, isSameDay, differenceInDays } from "date-fns";
 import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
+import { Badge } from "@/components/ui/badge";
 
 const COLORS = [
   "hsl(48, 96%, 53%)",
@@ -59,10 +60,12 @@ export default function Dashboard() {
   const periodStart = parseLocalDate(startDate);
   const periodEnd = parseLocalDate(endDate);
 
-  // Determine if we're in "day" view (single day in day mode)
-  const isDayView = mode === "day" && isSingleDay;
+  // In "day" mode, we use the same UI for single day or range
+  const isDayMode = mode === "day";
+  const isRange = !isSingleDay;
+  const daysCount = differenceInDays(periodEnd, periodStart) + 1;
 
-  // Fetch revenues for selected period
+  // Fetch revenues for selected period (legacy)
   const { data: revenues = [] } = useQuery({
     queryKey: ["revenues", user?.id, startDate, endDate],
     queryFn: async () => {
@@ -96,14 +99,17 @@ export default function Dashboard() {
   const { getCounts: getMaintenanceCounts } = useMaintenance();
   const maintenanceCounts = getMaintenanceCounts();
 
-  // Fetch income_day data for the new model
-  const { incomeDay } = useIncomeDay(isDayView ? periodStart : undefined);
+  // Fetch income_day data for the new model (single day)
+  const { incomeDay } = useIncomeDay(isSingleDay ? periodStart : undefined);
+  
+  // Fetch income_days for period (aggregated data)
   const { 
-    totalRevenue: incomeDayTotalRevenue,
-    totalTrips: incomeDayTotalTrips,
-    totalKm: incomeDayTotalKm,
-    totalMinutes: incomeDayTotalMinutes,
-    platformBreakdown: incomeDayPlatformBreakdown,
+    totalRevenue: incomeDaysTotalRevenue,
+    totalTrips: incomeDaysTotalTrips,
+    totalKm: incomeDaysTotalKm,
+    totalMinutes: incomeDaysTotalMinutes,
+    platformBreakdown: incomeDaysPlatformBreakdown,
+    incomeDays,
   } = useIncomeDays(periodStart, periodEnd);
 
   // Fetch revenue by platform for period view
@@ -120,40 +126,17 @@ export default function Dashboard() {
   const daysInPeriod = eachDayOfInterval({ start: periodStart, end: periodEnd }).length;
   const periodRecurringTotal = calculatePeriodRecurringAmount(recurringExpenses, periodStart, periodEnd);
 
-  // Calculate KPIs
-  const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0);
+  // Calculate KPIs - use income_days data when available
+  const totalRevenue = incomeDaysTotalRevenue > 0 ? incomeDaysTotalRevenue : revenues.reduce((sum, r) => sum + Number(r.amount), 0);
   const totalAllExpenses = totalExpenses + periodRecurringTotal;
   const netProfit = totalRevenue - totalAllExpenses;
 
-  // Calculate average per day based on days with revenue
-  const daysWithRevenue = new Set(revenues.map((r) => r.date)).size;
-  const avgPerDay = daysWithRevenue > 0 ? netProfit / daysWithRevenue : 0;
-
-  // Goal for single day view
-  const currentDayGoal = isDayView ? getGoalForDate(periodStart) : null;
-
-  // Build period goals data for multi-day view
-  const periodGoalsData = !isDayView
-    ? eachDayOfInterval({ start: periodStart, end: periodEnd }).map((day) => {
-        const dateStr = formatLocalDate(day);
-        const dayRevenue = revenues
-          .filter((r) => r.date === dateStr)
-          .reduce((sum, r) => sum + Number(r.amount), 0);
-        return {
-          date: dateStr,
-          goal: getGoalForDate(day),
-          revenue: dayRevenue,
-        };
-      })
-    : [];
-
-  // Goals summary for period view
-  const goalsForPeriod = getGoalsForPeriod(periodStart, periodEnd);
+  // Goal calculations
+  const currentDayGoal = isSingleDay ? getGoalForDate(periodStart) : null;
   const totalGoalForPeriod = getTotalGoalsForPeriod(periodStart, periodEnd);
-  const daysWithGoal = goalsForPeriod.size;
-  const daysWithoutGoal = daysInPeriod - daysWithGoal;
-  const goalPercentage = totalGoalForPeriod > 0 ? (totalRevenue / totalGoalForPeriod) * 100 : 0;
-  const hasGoalsInPeriod = daysWithGoal > 0;
+
+  // For range: meta total do período = soma das metas diárias
+  const goalProgress = totalGoalForPeriod > 0 ? (totalRevenue / totalGoalForPeriod) * 100 : 0;
 
   // Group combined expenses by category (includes fuel)
   const expensesByCategory = combinedExpenses.reduce((acc, expense) => {
@@ -185,7 +168,32 @@ export default function Dashboard() {
     color: COLORS[index % COLORS.length],
   }));
 
-  // Daily profit data (including recurring expenses)
+  // Build period goals data for multi-day view
+  const periodGoalsData = isRange
+    ? eachDayOfInterval({ start: periodStart, end: periodEnd }).map((day) => {
+        const dateStr = formatLocalDate(day);
+        const dayRevenue = revenues
+          .filter((r) => r.date === dateStr)
+          .reduce((sum, r) => sum + Number(r.amount), 0);
+        return {
+          date: dateStr,
+          goal: getGoalForDate(day),
+          revenue: dayRevenue,
+        };
+      })
+    : [];
+
+  // Goals summary for period view
+  const goalsForPeriod = getGoalsForPeriod(periodStart, periodEnd);
+  const daysWithGoal = goalsForPeriod.size;
+  const daysWithoutGoal = daysInPeriod - daysWithGoal;
+  const hasGoalsInPeriod = daysWithGoal > 0;
+
+  // Calculate average per day based on days with revenue
+  const daysWithRevenue = new Set(revenues.map((r) => r.date)).size;
+  const avgPerDay = daysWithRevenue > 0 ? netProfit / daysWithRevenue : 0;
+
+  // Daily profit data (for charts in non-day modes)
   const daysInterval = eachDayOfInterval({ start: periodStart, end: periodEnd });
   const dailyData = daysInterval.map((day) => {
     const dayRevenues = revenues
@@ -207,9 +215,9 @@ export default function Dashboard() {
     };
   });
 
-  const hasData = revenues.length > 0 || combinedExpenses.length > 0;
+  const hasData = totalRevenue > 0 || totalAllExpenses > 0;
 
-  // Period view KPIs
+  // Period view KPIs (for week/month/year modes)
   const periodKpis = [
     {
       title: "Receita Total",
@@ -244,6 +252,247 @@ export default function Dashboard() {
     },
   ];
 
+  // === DAY MODE (single day or range with same UI) ===
+  if (isDayMode) {
+    // Use aggregated data from income_days
+    const dayTotalTrips = isSingleDay && incomeDay 
+      ? incomeDay.items.reduce((sum, item) => sum + item.trips, 0)
+      : incomeDaysTotalTrips;
+    
+    const dayKmRodados = isSingleDay && incomeDay
+      ? incomeDay.km_rodados || 0
+      : incomeDaysTotalKm;
+    
+    const dayWorkedMinutes = isSingleDay && incomeDay
+      ? incomeDay.hours_minutes || 0
+      : incomeDaysTotalMinutes;
+    
+    const dayRevenue = totalRevenue;
+
+    // Platform breakdown - build from income_days data
+    const dayPlatformRevenues = isSingleDay && incomeDay
+      ? incomeDay.items.map(item => ({
+          app: item.platform === "outro" && item.platform_label ? item.platform_label : item.platform,
+          amount: item.amount,
+        }))
+      : Object.entries(incomeDaysPlatformBreakdown).map(([key, data]) => ({
+          app: key,
+          amount: data.amount,
+        }));
+
+    // Period label
+    const periodLabel = isSingleDay
+      ? `Dia ${format(periodStart, "dd/MM/yyyy")}`
+      : `Período: ${format(periodStart, "dd/MM")} – ${format(periodEnd, "dd/MM")} (${daysCount} dias)`;
+
+    // Goal label for range
+    const goalLabel = isSingleDay
+      ? `Meta de ${format(periodStart, "dd/MM/yyyy")}`
+      : `Meta do Período (${daysCount} dias)`;
+
+    return (
+      <div className="p-4 sm:p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold">Dashboard</h1>
+              <p className="text-muted-foreground">
+                Acompanhe seus resultados financeiros
+              </p>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <DashboardFilterBar filter={filter} />
+
+          {/* Period Badge for range */}
+          {isRange && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 px-3 py-1">
+                <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                {periodLabel}
+              </Badge>
+            </div>
+          )}
+
+          {/* Goal Editor for single day view */}
+          {isSingleDay && (
+            <div className="flex items-center gap-2">
+              <GoalEditor date={periodStart} currentGoal={currentDayGoal} />
+            </div>
+          )}
+        </div>
+
+        {/* Income Day Form Modal */}
+        <IncomeDayForm
+          open={isIncomeDayFormOpen}
+          onOpenChange={setIsIncomeDayFormOpen}
+          selectedDate={periodStart}
+          existingData={isSingleDay ? incomeDay : undefined}
+        />
+
+        {/* Button to add/edit income (only for single day) */}
+        {isSingleDay && (
+          <div className="flex justify-end">
+            <Button
+              variant={incomeDay ? "outline" : "hero"}
+              onClick={() => setIsIncomeDayFormOpen(true)}
+            >
+              {incomeDay ? (
+                <>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Editar Receita do Dia
+                </>
+              ) : (
+                <>
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Lançar Receita do Dia
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* ORDER: A) Meta */}
+        {isSingleDay ? (
+          <DailyGoalCard
+            goal={currentDayGoal}
+            revenue={dayRevenue}
+            label={goalLabel}
+          />
+        ) : hasGoalsInPeriod ? (
+          <Card variant="elevated">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                {goalLabel}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Meta Total</p>
+                    <p className="text-lg font-bold text-primary">
+                      R$ {totalGoalForPeriod.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Faturado</p>
+                    <p className="text-lg font-bold text-success">
+                      R$ {totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Progresso</span>
+                    <div className="flex items-center gap-1">
+                      {goalProgress >= 100 ? (
+                        <CheckCircle2 className="w-4 h-4 text-success" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-muted-foreground" />
+                      )}
+                      <span className={`font-bold ${goalProgress >= 100 ? "text-success" : "text-foreground"}`}>
+                        {goalProgress.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2.5">
+                    <div
+                      className={`h-2.5 rounded-full transition-all ${goalProgress >= 100 ? "bg-success" : "bg-primary"}`}
+                      style={{ width: `${Math.min(goalProgress, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border text-sm">
+                  <span className="text-muted-foreground">Dias com meta</span>
+                  <span className="font-medium">
+                    {daysWithGoal} / {daysCount} dias
+                  </span>
+                </div>
+                {daysWithoutGoal > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {daysWithoutGoal} {daysWithoutGoal === 1 ? "dia" : "dias"} sem meta definida
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card variant="elevated">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                {goalLabel}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma meta definida para esse período.
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/dashboard/metas">Definir Metas</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ORDER: B) Resumo do dia/período */}
+        <DailySummaryCard
+          revenues={revenues}
+          expenses={combinedExpenses}
+          recurringTotal={isSingleDay 
+            ? calculateDailyRecurringAmount(recurringExpenses, periodStart).total 
+            : periodRecurringTotal
+          }
+          totalRevenue={dayRevenue}
+          totalExpenses={totalAllExpenses}
+          netProfit={dayRevenue - totalAllExpenses}
+        />
+
+        {/* ORDER: C) Receita por plataforma */}
+        {dayPlatformRevenues.length > 0 && (
+          <PlatformBreakdownCard revenues={dayPlatformRevenues} />
+        )}
+
+        {/* ORDER: D) Métricas do dia/período */}
+        <DayMetricsPanel
+          totalTrips={dayTotalTrips}
+          workedMinutes={dayWorkedMinutes}
+          kmRodados={dayKmRodados}
+          revenue={dayRevenue}
+          expenses={totalAllExpenses}
+        />
+
+        {/* ORDER: E) Despesas por categoria */}
+        {expenseCategoriesData.length > 0 && (
+          <ExpensesByCategoryChart data={expenseCategoriesData} compact />
+        )}
+
+        {/* ORDER: F) Manutenções */}
+        {maintenanceCounts.total > 0 && (
+          <MaintenanceSummaryCard
+            total={maintenanceCounts.total}
+            ok={maintenanceCounts.ok}
+            warning={maintenanceCounts.warning}
+            overdue={maintenanceCounts.overdue}
+            compact
+          />
+        )}
+      </div>
+    );
+  }
+
+  // === NON-DAY MODES (week, month, year) ===
   return (
     <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
@@ -257,177 +506,56 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* New Filter Bar with Mode Selector */}
+        {/* Filter Bar */}
         <DashboardFilterBar filter={filter} />
-
-        {/* Goal Editor for single day view */}
-        {isDayView && (
-          <div className="flex items-center gap-2">
-            <GoalEditor date={periodStart} currentGoal={currentDayGoal} />
-          </div>
-        )}
       </div>
 
-      {/* === SINGLE DAY VIEW (mode=day and single date) === */}
-      {isDayView && (
-        (() => {
-          // Use income_day data if available, fallback to legacy revenues
-          const dayTotalTrips = incomeDay 
-            ? incomeDay.items.reduce((sum, item) => sum + item.trips, 0)
-            : revenues.reduce((sum, r) => sum + (r.trips_count || 0), 0);
-          const dayKmRodados = incomeDay?.km_rodados || revenues.reduce((sum, r) => sum + (r.km_rodados || 0), 0);
-          const dayWorkedMinutes = incomeDay?.hours_minutes || revenues.reduce((sum, r) => sum + (r.worked_minutes || 0), 0);
-          const dayRevenue = incomeDay 
-            ? incomeDay.items.reduce((sum, item) => sum + item.amount, 0)
-            : totalRevenue;
+      {/* Goals Section */}
+      {isSingleDay ? (
+        <DailyGoalCard
+          goal={currentDayGoal}
+          revenue={totalRevenue}
+          label={`Meta de ${format(periodStart, "dd/MM/yyyy")}`}
+        />
+      ) : (
+        <PeriodGoalCard
+          days={periodGoalsData}
+          periodLabel={
+            mode === "week"
+              ? "Esta semana"
+              : mode === "month"
+              ? "Este mês"
+              : mode === "year"
+              ? "Este ano"
+              : "Período selecionado"
+          }
+        />
+      )}
 
-          // Platform breakdown from income_day
-          const dayPlatformRevenues = incomeDay 
-            ? incomeDay.items.map(item => ({
-                app: item.platform === "other" && item.platform_label ? item.platform_label : item.platform,
-                amount: item.amount,
-              }))
-            : revenues.map(r => ({ app: r.app, amount: Number(r.amount) }));
-
-          return (
-            <>
-              {/* Income Day Form */}
-              <IncomeDayForm
-                open={isIncomeDayFormOpen}
-                onOpenChange={setIsIncomeDayFormOpen}
-                selectedDate={periodStart}
-                existingData={incomeDay}
-              />
-
-              {/* Button to add/edit income */}
-              <div className="flex justify-end">
-                <Button
-                  variant={incomeDay ? "outline" : "hero"}
-                  onClick={() => setIsIncomeDayFormOpen(true)}
-                >
-                  {incomeDay ? (
-                    <>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Editar Receita do Dia
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle className="w-4 h-4 mr-2" />
-                      Lançar Receita do Dia
-                    </>
-                  )}
-                </Button>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        {periodKpis.map((kpi, index) => (
+          <Card
+            key={index}
+            variant={kpi.highlight ? "elevated" : "default"}
+            className={kpi.highlight ? "bg-gradient-card border-primary/30" : ""}
+          >
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <kpi.icon className={`w-4 h-4 ${kpi.highlight ? "text-primary" : "text-muted-foreground"}`} />
+                <span className="text-xs text-muted-foreground">{kpi.title}</span>
               </div>
+              <p className={`text-lg sm:text-xl font-bold truncate ${kpi.highlight && !kpi.isNegative ? "text-primary" : ""} ${kpi.isNegative ? "text-destructive" : ""}`}>
+                {kpi.value}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-              {/* Daily Goal Card */}
-              <DailyGoalCard
-                goal={currentDayGoal}
-                revenue={dayRevenue}
-                label={`Meta de ${format(periodStart, "dd/MM/yyyy")}`}
-              />
-
-              {/* Day Metrics Panel - Full metrics grid */}
-              <DayMetricsPanel
-                totalTrips={dayTotalTrips}
-                workedMinutes={dayWorkedMinutes}
-                kmRodados={dayKmRodados}
-                revenue={dayRevenue}
-                expenses={totalAllExpenses}
-              />
-
-              {/* Platform Breakdown */}
-              <PlatformBreakdownCard revenues={dayPlatformRevenues} />
-
-              {/* Daily Summary with transactions */}
-              <DailySummaryCard
-                revenues={revenues}
-                expenses={combinedExpenses}
-                recurringTotal={calculateDailyRecurringAmount(recurringExpenses, periodStart).total}
-                totalRevenue={dayRevenue}
-                totalExpenses={totalAllExpenses}
-                netProfit={dayRevenue - totalAllExpenses}
-              />
-
-              {/* Expenses by Category - Compact for day view */}
-              {expenseCategoriesData.length > 0 && (
-                <ExpensesByCategoryChart data={expenseCategoriesData} compact />
-              )}
-            </>
-          );
-        })()
-      )}
-
-      {/* === PERIOD VIEW (any mode with range, or non-day modes) === */}
-      {!isDayView && (
-        <>
-          {/* Goals Section */}
-          {isSingleDay ? (
-            <DailyGoalCard
-              goal={currentDayGoal}
-              revenue={totalRevenue}
-              label={`Meta de ${format(periodStart, "dd/MM/yyyy")}`}
-            />
-          ) : (
-            <PeriodGoalCard
-              days={periodGoalsData}
-              periodLabel={
-                mode === "week"
-                  ? "Esta semana"
-                  : mode === "month"
-                  ? "Este mês"
-                  : mode === "year"
-                  ? "Este ano"
-                  : "Período selecionado"
-              }
-            />
-          )}
-
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-            {periodKpis.map((kpi, index) => (
-              <Card
-                key={index}
-                variant={kpi.highlight ? "elevated" : "default"}
-                className={kpi.highlight ? "bg-gradient-card border-primary/30" : ""}
-              >
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <kpi.icon className={`w-4 h-4 ${kpi.highlight ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className="text-xs text-muted-foreground">{kpi.title}</span>
-                  </div>
-                  <p className={`text-lg sm:text-xl font-bold truncate ${kpi.highlight && !kpi.isNegative ? "text-primary" : ""} ${kpi.isNegative ? "text-destructive" : ""}`}>
-                    {kpi.value}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Maintenance + Platform Revenue Grid - Period View */}
-      {!isDayView && (
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Maintenance Summary */}
-          <MaintenanceSummaryCard
-            total={maintenanceCounts.total}
-            ok={maintenanceCounts.ok}
-            warning={maintenanceCounts.warning}
-            overdue={maintenanceCounts.overdue}
-            compact
-          />
-
-          {/* Platform Revenue Breakdown */}
-          <PeriodPlatformBreakdownCard
-            platformRevenues={platformRevenues}
-            totalRevenue={platformTotalRevenue}
-            isLoading={loadingPlatformRevenues}
-          />
-        </div>
-      )}
-
-      {/* Maintenance Summary Card - Day View Only */}
-      {isDayView && maintenanceCounts.total > 0 && (
+      {/* Maintenance + Platform Revenue Grid */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Maintenance Summary */}
         <MaintenanceSummaryCard
           total={maintenanceCounts.total}
           ok={maintenanceCounts.ok}
@@ -435,10 +563,17 @@ export default function Dashboard() {
           overdue={maintenanceCounts.overdue}
           compact
         />
-      )}
 
-      {/* Empty State or Charts - Period View */}
-      {!isDayView && !hasData && (
+        {/* Platform Revenue Breakdown */}
+        <PeriodPlatformBreakdownCard
+          platformRevenues={platformRevenues}
+          totalRevenue={platformTotalRevenue}
+          isLoading={loadingPlatformRevenues}
+        />
+      </div>
+
+      {/* Empty State */}
+      {!hasData && (
         <Card variant="elevated" className="p-8 sm:p-12">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -460,8 +595,8 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Charts - Period View */}
-      {!isDayView && hasData && (
+      {/* Charts */}
+      {hasData && (
         <>
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Bar Chart - Daily Profit */}
@@ -563,20 +698,20 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Progresso</span>
                         <div className="flex items-center gap-1">
-                          {goalPercentage >= 100 ? (
+                          {goalProgress >= 100 ? (
                             <CheckCircle2 className="w-4 h-4 text-success" />
                           ) : (
                             <XCircle className="w-4 h-4 text-muted-foreground" />
                           )}
-                          <span className={`font-bold ${goalPercentage >= 100 ? "text-success" : "text-foreground"}`}>
-                            {goalPercentage.toFixed(1)}%
+                          <span className={`font-bold ${goalProgress >= 100 ? "text-success" : "text-foreground"}`}>
+                            {goalProgress.toFixed(1)}%
                           </span>
                         </div>
                       </div>
                       <div className="w-full bg-secondary rounded-full h-2.5">
                         <div
-                          className={`h-2.5 rounded-full transition-all ${goalPercentage >= 100 ? "bg-success" : "bg-primary"}`}
-                          style={{ width: `${Math.min(goalPercentage, 100)}%` }}
+                          className={`h-2.5 rounded-full transition-all ${goalProgress >= 100 ? "bg-success" : "bg-primary"}`}
+                          style={{ width: `${Math.min(goalProgress, 100)}%` }}
                         />
                       </div>
                     </div>
@@ -617,8 +752,8 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* Profit Comparison Chart - Always show if there's any data (period view only) */}
-      {!isDayView && hasData && (
+      {/* Profit Comparison Chart */}
+      {hasData && (
         <ProfitComparisonChart userId={user?.id} />
       )}
     </div>
