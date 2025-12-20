@@ -1,7 +1,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, ChevronDown } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
@@ -12,150 +12,107 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DayPreset, DAY_PRESET_OPTIONS } from "@/hooks/useDashboardFilter";
 import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
 
 interface DayModeSelectorProps {
   startDate: string;
   endDate: string;
-  currentPreset: DayPreset;
-  onPresetChange: (preset: DayPreset) => void;
   onDateRangeChange: (start: string, end: string) => void;
 }
 
 export function DayModeSelector({
   startDate,
   endDate,
-  currentPreset,
-  onPresetChange,
   onDateRangeChange,
 }: DayModeSelectorProps) {
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [tempRange, setTempRange] = React.useState<DateRange | undefined>();
+  const [clickCount, setClickCount] = React.useState(0);
 
   const startDateObj = parseLocalDate(startDate);
   const endDateObj = parseLocalDate(endDate);
   const isSingleDay = startDate === endDate;
 
-  const currentLabel = DAY_PRESET_OPTIONS.find((o) => o.value === currentPreset)?.label || "Período";
-
-  const handlePresetClick = (preset: DayPreset) => {
-    if (preset === "custom") {
-      setTempRange({ from: startDateObj, to: endDateObj });
-      setCalendarOpen(true);
-    } else {
-      onPresetChange(preset);
-    }
-  };
-
   const handleRangeSelect = (range: DateRange | undefined) => {
-    setTempRange(range);
+    if (!range?.from) {
+      setTempRange(undefined);
+      setClickCount(0);
+      return;
+    }
 
-    // When both dates are selected, apply and close
-    if (range?.from && range?.to) {
-      onDateRangeChange(formatLocalDate(range.from), formatLocalDate(range.to));
+    const newClickCount = clickCount + 1;
+    setClickCount(newClickCount);
+
+    if (newClickCount === 1) {
+      // First click - set single day
+      const dateStr = formatLocalDate(range.from);
+      setTempRange({ from: range.from, to: range.from });
+      onDateRangeChange(dateStr, dateStr);
+    } else if (newClickCount === 2 && range.to) {
+      // Second click on different day - set range
+      const start = range.from < range.to ? range.from : range.to;
+      const end = range.from < range.to ? range.to : range.from;
+      setTempRange({ from: start, to: end });
+      onDateRangeChange(formatLocalDate(start), formatLocalDate(end));
       setCalendarOpen(false);
-    } else if (range?.from && !range?.to) {
-      // Single click - could be selecting single day
-      // We'll wait for the second click
+      setClickCount(0);
+    } else if (newClickCount === 2 && !range.to) {
+      // Second click on same day - keep as single day
+      const dateStr = formatLocalDate(range.from);
+      setTempRange({ from: range.from, to: range.from });
+      onDateRangeChange(dateStr, dateStr);
+      setCalendarOpen(false);
+      setClickCount(0);
     }
   };
 
   const handleCalendarOpenChange = (open: boolean) => {
     setCalendarOpen(open);
-    if (!open) {
-      // If closing with only start selected, treat as single day
-      if (tempRange?.from && !tempRange?.to) {
-        const dateStr = formatLocalDate(tempRange.from);
-        onDateRangeChange(dateStr, dateStr);
-      }
+    if (open) {
+      setTempRange({ from: startDateObj, to: endDateObj });
+      setClickCount(0);
+    } else {
       setTempRange(undefined);
+      setClickCount(0);
     }
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Preset Dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="gap-2 min-w-[130px] justify-between">
-            <span className="truncate">{currentLabel}</span>
-            <ChevronDown className="w-4 h-4 shrink-0 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-44 bg-popover">
-          {DAY_PRESET_OPTIONS.filter((o) => o.value !== "custom").map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onClick={() => handlePresetClick(option.value)}
-              className={cn(
-                "cursor-pointer",
-                currentPreset === option.value && "bg-primary/10 text-primary"
-              )}
-            >
-              {option.label}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => handlePresetClick("custom")}
-            className={cn(
-              "cursor-pointer",
-              currentPreset === "custom" && "bg-primary/10 text-primary"
+    <Popover open={calendarOpen} onOpenChange={handleCalendarOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="justify-start text-left font-normal min-w-[180px] sm:min-w-[240px]"
+        >
+          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+          <span className="truncate">
+            {isSingleDay ? (
+              format(startDateObj, "dd/MM/yyyy", { locale: ptBR })
+            ) : (
+              <>
+                {format(startDateObj, "dd/MM/yyyy", { locale: ptBR })} – {format(endDateObj, "dd/MM/yyyy", { locale: ptBR })}
+              </>
             )}
-          >
-            Personalizado...
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Date Display / Picker */}
-      <Popover open={calendarOpen} onOpenChange={handleCalendarOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className="justify-start text-left font-normal min-w-[180px] sm:min-w-[220px]"
-          >
-            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-            <span className="truncate">
-              {isSingleDay ? (
-                format(startDateObj, "dd/MM/yyyy", { locale: ptBR })
-              ) : (
-                <>
-                  {format(startDateObj, "dd/MM/yy", { locale: ptBR })} -{" "}
-                  {format(endDateObj, "dd/MM/yy", { locale: ptBR })}
-                </>
-              )}
-            </span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
-          <div className="p-3 border-b border-border">
-            <p className="text-sm text-muted-foreground">
-              {tempRange?.from && !tempRange?.to
-                ? "Selecione a data final (ou clique na mesma data para dia único)"
-                : "Selecione uma data ou intervalo"}
-            </p>
-          </div>
-          <Calendar
-            initialFocus
-            mode="range"
-            defaultMonth={startDateObj}
-            selected={tempRange || { from: startDateObj, to: endDateObj }}
-            onSelect={handleRangeSelect}
-            numberOfMonths={2}
-            locale={ptBR}
-            className="pointer-events-auto"
-          />
-        </PopoverContent>
-      </Popover>
-    </div>
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
+        <div className="p-3 border-b border-border">
+          <p className="text-sm text-muted-foreground">
+            Clique em um dia para ver o dia. Clique em outro dia para formar um intervalo.
+          </p>
+        </div>
+        <Calendar
+          initialFocus
+          mode="range"
+          defaultMonth={startDateObj}
+          selected={tempRange || { from: startDateObj, to: endDateObj }}
+          onSelect={handleRangeSelect}
+          numberOfMonths={2}
+          locale={ptBR}
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
