@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       credit_card_invoices: {
         Row: {
+          balance: number
           closing_date: string
           created_at: string
           credit_card_id: string
@@ -23,13 +24,16 @@ export type Database = {
           id: string
           is_paid: boolean
           paid_at: string | null
+          paid_total: number
           period_end: string
           period_start: string
+          status: string
           total_amount: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          balance?: number
           closing_date: string
           created_at?: string
           credit_card_id: string
@@ -37,13 +41,16 @@ export type Database = {
           id?: string
           is_paid?: boolean
           paid_at?: string | null
+          paid_total?: number
           period_end: string
           period_start: string
+          status?: string
           total_amount?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          balance?: number
           closing_date?: string
           created_at?: string
           credit_card_id?: string
@@ -51,8 +58,10 @@ export type Database = {
           id?: string
           is_paid?: boolean
           paid_at?: string | null
+          paid_total?: number
           period_end?: string
           period_start?: string
+          status?: string
           total_amount?: number
           updated_at?: string
           user_id?: string
@@ -63,6 +72,89 @@ export type Database = {
             columns: ["credit_card_id"]
             isOneToOne: false
             referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_card_transactions: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          credit_card_id: string
+          current_installment: number | null
+          date: string
+          description: string | null
+          id: string
+          invoice_id: string | null
+          source_expense_id: string | null
+          source_fuel_log_id: string | null
+          total_installments: number | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          credit_card_id: string
+          current_installment?: number | null
+          date: string
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          source_expense_id?: string | null
+          source_fuel_log_id?: string | null
+          total_installments?: number | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          credit_card_id?: string
+          current_installment?: number | null
+          date?: string
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          source_expense_id?: string | null
+          source_fuel_log_id?: string | null
+          total_installments?: number | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_card_transactions_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "credit_card_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_transactions_source_expense_id_fkey"
+            columns: ["source_expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_transactions_source_fuel_log_id_fkey"
+            columns: ["source_fuel_log_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_logs"
             referencedColumns: ["id"]
           },
         ]
@@ -599,6 +691,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      recalc_invoice: { Args: { p_invoice_id: string }; Returns: undefined }
       recalculate_invoice_total: {
         Args: { p_invoice_id: string }
         Returns: undefined
