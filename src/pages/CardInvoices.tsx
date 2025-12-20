@@ -10,7 +10,18 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -93,6 +104,7 @@ export default function CardInvoices() {
   const queryClient = useQueryClient();
 
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [confirmPaymentOpen, setConfirmPaymentOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
@@ -195,12 +207,19 @@ export default function CardInvoices() {
     setPaymentDialogOpen(true);
   };
 
-  const handleRegisterPayment = () => {
+  const handleRequestPayment = () => {
+    if (!selectedInvoice || !paymentAmount) return;
+    setPaymentDialogOpen(false);
+    setConfirmPaymentOpen(true);
+  };
+
+  const handleConfirmPayment = () => {
     if (!selectedInvoice || !paymentAmount) return;
     registerPayment.mutate({
       invoiceId: selectedInvoice.id,
       amount: parseFloat(paymentAmount),
     });
+    setConfirmPaymentOpen(false);
   };
 
   const formatInvoiceMonth = (closingDate: string) => {
@@ -533,18 +552,46 @@ export default function CardInvoices() {
             </Button>
             <Button
               variant="hero"
-              onClick={handleRegisterPayment}
-              disabled={registerPayment.isPending || !paymentAmount}
+              onClick={handleRequestPayment}
+              disabled={!paymentAmount}
             >
-              {registerPayment.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Confirmar Pagamento"
-              )}
+              Registrar Pagamento
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation AlertDialog */}
+      <AlertDialog open={confirmPaymentOpen} onOpenChange={setConfirmPaymentOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a registrar um pagamento de{" "}
+              <span className="font-semibold text-foreground">
+                {formatCurrencyBRL(parseFloat(paymentAmount) || 0)}
+              </span>{" "}
+              para a fatura de{" "}
+              <span className="font-semibold text-foreground capitalize">
+                {selectedInvoice ? formatInvoiceMonth(selectedInvoice.closing_date) : ""}
+              </span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmPayment}
+              disabled={registerPayment.isPending}
+            >
+              {registerPayment.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Confirmar"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
