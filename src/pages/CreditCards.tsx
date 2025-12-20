@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Plus, CreditCard as CardIcon, DollarSign, Percent, Loader2, Trash2, ChevronDown, Receipt, ChevronLeft, ChevronRight, Calendar, AlertTriangle, CheckCircle2, Circle, Fuel } from "lucide-react";
+import { Plus, CreditCard as CardIcon, DollarSign, Percent, Loader2, Trash2, ChevronDown, Receipt, ChevronLeft, ChevronRight, Calendar, AlertTriangle, CheckCircle2, Circle, Fuel, FileText } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +32,7 @@ import { parseLocalDate } from "@/lib/dateUtils";
 import { formatCurrencyBRL } from "@/lib/format";
 
 export default function CreditCards() {
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [lastDigits, setLastDigits] = useState("");
@@ -611,16 +613,33 @@ export default function CreditCards() {
                     )}
 
                     {/* Card details */}
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border/50">
                       <div className="text-center">
-                        <p className="text-xs text-muted-foreground">Melhor compra</p>
-                        <p className="font-medium">{card.best_purchase_day ? `Dia ${card.best_purchase_day}` : "—"}</p>
+                        <p className="text-xs text-muted-foreground">Fechamento</p>
+                        <p className="font-medium">{card.closing_day ? `Dia ${card.closing_day}` : "—"}</p>
                       </div>
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground">Vencimento</p>
                         <p className="font-medium">{card.due_day ? `Dia ${card.due_day}` : "—"}</p>
                       </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Melhor compra</p>
+                        <p className="font-medium">{card.best_purchase_day ? `Dia ${card.best_purchase_day}` : "—"}</p>
+                      </div>
                     </div>
+
+                    {/* View Invoices Button */}
+                    {card.closing_day && card.due_day && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-4 border-primary/30 text-primary hover:bg-primary/10"
+                        onClick={() => navigate(`/dashboard/cartoes/${card.id}/faturas`)}
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Ver Faturas
+                      </Button>
+                    )}
 
                     {/* Monthly bill breakdown */}
                     {(cardExpensesList.length > 0 || cardFuelLogs.length > 0) && (
