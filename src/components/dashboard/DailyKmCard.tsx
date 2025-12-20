@@ -3,17 +3,41 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Gauge, Edit2, Check, X, Trash2 } from "lucide-react";
-import { useDailyKm } from "@/hooks/useDailyKm";
-import { format } from "date-fns";
+import { Gauge, Edit2, Check, X, Trash2, TrendingDown } from "lucide-react";
+import { useDailyKm, DailyKmLog } from "@/hooks/useDailyKm";
+import { useCombinedExpenses } from "@/hooks/useCombinedExpenses";
+import { useAuth } from "@/hooks/useAuth";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 interface DailyKmCardProps {
   date: Date;
 }
 
 export function DailyKmCard({ date }: DailyKmCardProps) {
-  const { getKmForDate, upsertKm, deleteKm } = useDailyKm();
+  const { user } = useAuth();
+  const { kmLogs, getKmForDate, upsertKm, deleteKm } = useDailyKm();
   const kmLog = getKmForDate(date);
+
+  // Get expenses for cost calculation (monthly view)
+  const monthStart = startOfMonth(date);
+  const monthEnd = endOfMonth(date);
+  const { combinedExpenses } = useCombinedExpenses(user?.id, monthStart, monthEnd);
+
+  // Calculate total KM driven this month
+  const monthlyKmDriven = kmLogs
+    .filter((log: DailyKmLog) => {
+      const logDate = new Date(log.date);
+      return logDate >= monthStart && logDate <= monthEnd;
+    })
+    .reduce((sum: number, log: DailyKmLog) => sum + (log.km_driven || 0), 0);
+
+  // Calculate fuel + maintenance costs for the month
+  const fuelAndMaintenanceCosts = combinedExpenses
+    .filter((e) => e.category === "combustivel" || e.category === "manutencao")
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  // Cost per KM
+  const costPerKm = monthlyKmDriven > 0 ? fuelAndMaintenanceCosts / monthlyKmDriven : 0;
 
   const [isEditing, setIsEditing] = useState(false);
   const [startKm, setStartKm] = useState("");
@@ -142,6 +166,25 @@ export function DailyKmCard({ date }: DailyKmCardProps) {
               <span className="text-sm font-medium">Rodado</span>
               <span className="text-lg font-bold text-primary">{kmLog.km_driven.toLocaleString("pt-BR")} km</span>
             </div>
+            {costPerKm > 0 && (
+              <div className="pt-2 border-t border-border space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <TrendingDown className="w-3 h-3" />
+                  <span>Custo por KM (mês)</span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-sm text-muted-foreground">
+                    {monthlyKmDriven.toLocaleString("pt-BR")} km rodados
+                  </span>
+                  <span className="text-lg font-bold text-orange-500">
+                    R$ {costPerKm.toFixed(2).replace(".", ",")}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Combustível + Manutenção: R$ {fuelAndMaintenanceCosts.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <Button variant="outline" className="w-full" onClick={handleEdit}>
