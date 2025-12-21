@@ -795,3 +795,88 @@ export function useUpdateMemberPix() {
     },
   });
 }
+
+// Hook to update competition as host
+export function useUpdateCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      competition_id: string;
+      name?: string;
+      description?: string;
+      goal_value?: number;
+      prize_value?: number;
+      start_date?: string;
+      end_date?: string;
+      max_members?: number;
+    }) => {
+      const { data, error } = await supabase.rpc("update_competition_as_host", {
+        p_competition_id: params.competition_id,
+        p_name: params.name || null,
+        p_description: params.description || null,
+        p_goal_value: params.goal_value || null,
+        p_prize_value: params.prize_value ?? null,
+        p_start_date: params.start_date || null,
+        p_end_date: params.end_date || null,
+        p_max_members: params.max_members || null,
+      });
+
+      if (error) throw error;
+      return data as {
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        goal_value: number;
+        prize_value: number;
+        start_date: string;
+        end_date: string;
+        max_members: number | null;
+        allow_teams: boolean;
+        host_participates: boolean;
+      };
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["competitions-for-tabs"] });
+      queryClient.invalidateQueries({ queryKey: ["my-competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["competition-by-id", variables.competition_id] });
+      queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
+      toast.success("Competição atualizada com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao atualizar competição");
+    },
+  });
+}
+
+// Hook to delete competition as host (soft delete)
+export function useDeleteCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (competitionId: string) => {
+      const { data, error } = await supabase.rpc("delete_competition_as_host", {
+        p_competition_id: competitionId,
+      });
+
+      if (error) throw error;
+      return data as {
+        success: boolean;
+        deleted_members: number;
+        deleted_teams: number;
+        competition_name: string;
+      };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["competitions-for-tabs"] });
+      queryClient.invalidateQueries({ queryKey: ["my-competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["listed-competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["finished-competitions"] });
+      toast.success(`Competição "${data.competition_name}" excluída`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao excluir competição");
+    },
+  });
+}

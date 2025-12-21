@@ -23,6 +23,7 @@ import {
   UserPlus,
   Pencil,
   Clock,
+  Trash2,
 } from "lucide-react";
 import {
   useCompetitionById,
@@ -77,6 +78,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CompetitionDetailsSkeleton, LeaderboardSkeleton } from "@/components/competitions/CompetitionDetailsSkeleton";
 import { PullToRefresh } from "@/components/ui/pull-to-refresh";
 import { useQueryClient } from "@tanstack/react-query";
+import { EditCompetitionModal } from "@/components/competitions/EditCompetitionModal";
+import { DeleteCompetitionDialog } from "@/components/competitions/DeleteCompetitionDialog";
 
 const formatCurrency = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -101,6 +104,8 @@ export default function CompetitionDetails() {
   } | null>(null);
   const [showTransparencyDialog, setShowTransparencyDialog] = useState(false);
   const [transparencyChecked, setTransparencyChecked] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Fetch competition by ID (or fallback to code for backward compatibility)
   const { data: competition, isLoading: competitionLoading } = useCompetitionById(id);
@@ -319,6 +324,29 @@ export default function CompetitionDetails() {
             </Alert>
           )}
         </div>
+        
+        {/* Host Actions: Edit/Delete */}
+        {isHost && !isFinished && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowEditModal(true)}
+              title="Editar Competição"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowDeleteDialog(true)}
+              title="Excluir Competição"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -534,7 +562,7 @@ export default function CompetitionDetails() {
       )}
 
       {/* Daily Scores Panel - only show for active or finished competitions */}
-      {(status.status === "active" || isFinished) && (() => {
+      {(status.status === "active" || isFinished) && leaderboard && (() => {
         // Find user's team and count members - only if user is a competitor in a team
         let teamMemberCount = 1;
         
@@ -834,6 +862,25 @@ export default function CompetitionDetails() {
           payoutValue={finishInfo.payoutValue}
           winnerName={finishInfo.winnerName}
           winnerType={finishInfo.winnerType}
+        />
+      )}
+
+      {/* Edit Competition Modal */}
+      {competition && (
+        <EditCompetitionModal
+          open={showEditModal}
+          onOpenChange={setShowEditModal}
+          competition={competition}
+        />
+      )}
+
+      {/* Delete Competition Dialog */}
+      {competition && (
+        <DeleteCompetitionDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+          competitionId={competition.id}
+          competitionName={competition.name}
         />
       )}
     </div>

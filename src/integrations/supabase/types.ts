@@ -256,6 +256,7 @@ export type Database = {
           code: string
           created_at: string | null
           created_by: string
+          deleted_at: string | null
           description: string | null
           end_date: string
           goal_type: string
@@ -277,6 +278,7 @@ export type Database = {
           code: string
           created_at?: string | null
           created_by: string
+          deleted_at?: string | null
           description?: string | null
           end_date: string
           goal_type?: string
@@ -298,6 +300,7 @@ export type Database = {
           code?: string
           created_at?: string | null
           created_by?: string
+          deleted_at?: string | null
           description?: string | null
           end_date?: string
           goal_type?: string
@@ -1470,6 +1473,10 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_competition_as_host: {
+        Args: { p_competition_id: string }
+        Returns: Json
+      }
       delete_fuel_expense: { Args: { p_expense_id: string }; Returns: boolean }
       dismiss_notification: {
         Args: { p_notification_id: string }
@@ -1596,6 +1603,19 @@ export type Database = {
       }
       unassign_member_from_team: {
         Args: { p_competition_id: string; p_user_id: string }
+        Returns: Json
+      }
+      update_competition_as_host: {
+        Args: {
+          p_competition_id: string
+          p_description?: string
+          p_end_date?: string
+          p_goal_value?: number
+          p_max_members?: number
+          p_name?: string
+          p_prize_value?: number
+          p_start_date?: string
+        }
         Returns: Json
       }
       update_fuel_expense: {
