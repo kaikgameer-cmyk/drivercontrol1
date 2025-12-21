@@ -148,7 +148,7 @@ export default function CompetitionDetails() {
     }
   };
 
-  if (competitionLoading || leaderboardLoading) {
+  if (competitionLoading) {
     return (
       <div className="p-4 md:p-6 flex items-center justify-center min-h-[400px]">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -156,7 +156,7 @@ export default function CompetitionDetails() {
     );
   }
 
-  if (!competition || !leaderboard) {
+  if (!competition) {
     return (
       <div className="p-4 md:p-6">
         <Card>
@@ -255,7 +255,7 @@ export default function CompetitionDetails() {
 
   // Get members without a team for manual assignment
   const getMembersWithoutTeam = (): AllMember[] => {
-    if (!leaderboard.all_members || !leaderboard.teams) return leaderboard.all_members || [];
+    if (!leaderboard || !leaderboard.all_members || !leaderboard.teams) return leaderboard?.all_members || [];
     
     const membersInTeams = new Set<string>();
     leaderboard.teams.forEach(team => {
@@ -330,7 +330,7 @@ export default function CompetitionDetails() {
             <CardDescription>Prêmio</CardDescription>
             <CardTitle className="text-xl flex items-center gap-2 text-primary">
               <Gift className="w-5 h-5" />
-              {formatCurrency(leaderboard.competition.prize_value || competition.prize_value)}
+              {formatCurrency(leaderboard?.competition.prize_value || competition.prize_value)}
             </CardTitle>
           </CardHeader>
         </Card>
