@@ -12,7 +12,7 @@ import { ptBR } from "date-fns/locale";
 import JoinCompetitionModal from "@/components/competitions/JoinCompetitionModal";
 import CreateCompetitionModal from "@/components/competitions/CreateCompetitionModal";
 import HostPayoutNotification from "@/components/competitions/HostPayoutNotification";
-import { getRemainingTime } from "@/lib/competitionUtils";
+import { getRemainingTime, getTimeUntilStart } from "@/lib/competitionUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { CompetitionSkeletonGrid } from "@/components/competitions/CompetitionCardSkeleton";
 import { PullToRefresh } from "@/components/ui/pull-to-refresh";
@@ -101,12 +101,12 @@ export default function Competitions() {
       return `${remaining.hours}h restantes`;
     }
     
-    // For future competitions
+    // For future competitions (Participe agora / Aguardando início)
     if (comp.computed_label === "Aguardando início" || comp.computed_label === "Participe agora") {
-      const now = new Date();
-      const start = parseISO(comp.start_date);
-      const daysToStart = Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      return `Começa em ${daysToStart} dia${daysToStart !== 1 ? 's' : ''}`;
+      const untilStart = getTimeUntilStart(comp.start_date);
+      if (!untilStart.started) {
+        return `Começa em ${untilStart.formattedDate}`;
+      }
     }
     
     return "";
@@ -276,7 +276,7 @@ export default function Competitions() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-3">
                       {comp.description && (
                         <p className="text-sm text-muted-foreground">{comp.description}</p>
                       )}
@@ -300,17 +300,22 @@ export default function Competitions() {
                           {format(parseISO(comp.start_date), "dd/MM/yy", { locale: ptBR })} -{" "}
                           {format(parseISO(comp.end_date), "dd/MM/yy", { locale: ptBR })}
                         </span>
-                        {comp.computed_label === "Em andamento" && (
-                          <span className="ml-auto text-primary font-medium">
-                            {getDaysInfo(comp)}
-                          </span>
-                        )}
-                        {comp.computed_label === "Participe agora" && (
-                          <span className="ml-auto text-primary font-medium">
+                        {(comp.computed_label === "Em andamento" || comp.computed_label === "Participe agora") && (
+                          <span className="ml-auto text-primary font-medium text-xs">
                             {getDaysInfo(comp)}
                           </span>
                         )}
                       </div>
+                      <Button 
+                        className="w-full gap-2 mt-2" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/competicoes/${comp.id}`);
+                        }}
+                      >
+                        <LogIn className="w-4 h-4" />
+                        Entrar na Competição
+                      </Button>
                     </CardContent>
                   </Card>
                 );

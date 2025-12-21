@@ -1,9 +1,10 @@
-import { parseISO, addDays, isBefore } from "date-fns";
+import { parseISO, addDays, isBefore, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 // Timezone: America/Sao_Paulo
 // Competition is active until 23:59:59 of end_date in Sao Paulo timezone
 // NOTE: For the Competitions page, status calculation is done in the backend RPC for consistency
-// This file provides helper functions for remaining time calculations and legacy status checks
+// This file provides helper functions for remaining time calculations and status checks
 
 export type CompetitionStatus = "upcoming" | "active" | "finished";
 
@@ -56,7 +57,7 @@ export function getCompetitionStatus(startDate: string, endDate: string): Compet
   if (isBefore(now, startExclusive)) {
     return {
       status: "upcoming",
-      label: "Em breve",
+      label: "Participe agora",
       variant: "secondary",
     };
   }
@@ -87,6 +88,18 @@ export function isCompetitionFinished(endDate: string): boolean {
 }
 
 /**
+ * Check if a revenue date is within the competition period
+ * Revenue only counts if: start_date <= revenue_date <= end_date
+ */
+export function isWithinCompetitionPeriod(revenueDate: string, startDate: string, endDate: string): boolean {
+  const revDate = parseISO(revenueDate);
+  const start = parseISO(startDate);
+  const end = parseISO(endDate);
+  
+  return revDate >= start && revDate <= end;
+}
+
+/**
  * Get remaining time for active competition
  * Uses Sao Paulo timezone for accurate end time
  */
@@ -104,4 +117,26 @@ export function getRemainingTime(endDate: string): { days: number; hours: number
   const hours = diffHours % 24;
   
   return { days, hours, finished: false };
+}
+
+/**
+ * Get time until competition starts
+ * Returns days/hours until start for "Em breve" competitions
+ */
+export function getTimeUntilStart(startDate: string): { days: number; hours: number; started: boolean; formattedDate: string } {
+  const now = new Date();
+  const startExclusive = getStartInSaoPaulo(startDate);
+  
+  if (now >= startExclusive) {
+    return { days: 0, hours: 0, started: true, formattedDate: '' };
+  }
+  
+  const diffMs = startExclusive.getTime() - now.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(diffHours / 24);
+  const hours = diffHours % 24;
+  
+  const formattedDate = format(parseISO(startDate), "dd/MM 'às' 00:00", { locale: ptBR });
+  
+  return { days, hours, started: false, formattedDate };
 }
