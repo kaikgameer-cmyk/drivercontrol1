@@ -441,71 +441,72 @@ export default function CompetitionDetails() {
         </Card>
       )}
 
-      {/* Leaderboard Tabs */}
-      {leaderboard ? (
-        <div className="animate-fade-in">
-        <Tabs defaultValue={leaderboard.teams && leaderboard.teams.length > 0 ? "teams" : "individual"}>
-          <TabsList>
-            {leaderboard.teams && leaderboard.teams.length > 0 && (
-              <TabsTrigger value="teams" className="gap-2">
-                <Users className="w-4 h-4" />
-                Ranking por Times
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="individual" className="gap-2">
-              <Trophy className="w-4 h-4" />
-              Ranking Individual
-            </TabsTrigger>
-          </TabsList>
+      {/* Leaderboard Section */}
+      {isMember || isHost ? (
+        leaderboard ? (
+          <div className="animate-fade-in">
+            <Tabs defaultValue={leaderboard.teams && leaderboard.teams.length > 0 ? "teams" : "individual"}>
+              <TabsList>
+                {leaderboard.teams && leaderboard.teams.length > 0 && (
+                  <TabsTrigger value="teams" className="gap-2">
+                    <Users className="w-4 h-4" />
+                    Ranking por Times
+                  </TabsTrigger>
+                )}
+                <TabsTrigger value="individual" className="gap-2">
+                  <Trophy className="w-4 h-4" />
+                  Ranking Individual
+                </TabsTrigger>
+              </TabsList>
 
-        <TabsContent value="individual" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ranking Individual</CardTitle>
-              <CardDescription>
-                Classificação baseada em receita acumulada
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {leaderboard.members && leaderboard.members.length > 0 ? (
-                <div className="space-y-3">
-                  {leaderboard.members.map((member, index) => (
-                    <div
-                      key={member.user_id}
-                      className={`flex items-center gap-4 p-3 rounded-lg ${
-                        member.user_id === user?.id
-                          ? "bg-primary/10 border border-primary/30"
-                          : "bg-muted/50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-center w-8">
-                        {getRankIcon(index)}
+              <TabsContent value="individual" className="mt-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Ranking Individual</CardTitle>
+                    <CardDescription>
+                      Classificação baseada em receita acumulada
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {leaderboard.members && leaderboard.members.length > 0 ? (
+                      <div className="space-y-3">
+                        {leaderboard.members.map((member, index) => (
+                          <div
+                            key={member.user_id}
+                            className={`flex items-center gap-4 p-3 rounded-lg ${
+                              member.user_id === user?.id
+                                ? "bg-primary/10 border border-primary/30"
+                                : "bg-muted/50"
+                            }`}
+                          >
+                            <div className="flex items-center justify-center w-8">
+                              {getRankIcon(index)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">
+                                {member.display_name}
+                                {member.role === "host" && (
+                                  <Crown className="w-3 h-3 inline ml-1 text-primary" />
+                                )}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Receita: {formatCurrency(member.total_income)}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-lg">{formatCurrency(member.score)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {member.progress > 0 ? `${member.progress}% da meta` : "—"}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
-                          {member.display_name}
-                          {member.role === "host" && (
-                            <Crown className="w-3 h-3 inline ml-1 text-primary" />
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Receita: {formatCurrency(member.total_income)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg">{formatCurrency(member.score)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {member.progress > 0 ? `${member.progress}% da meta` : "—"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Nenhum dado de ranking ainda
-                </p>
-              )}
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        Nenhum dado de ranking ainda
+                      </p>
+                    )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -552,11 +553,28 @@ export default function CompetitionDetails() {
             </Card>
           </TabsContent>
         )}
-        </Tabs>
-        </div>
-      ) : isMember ? (
-        <LeaderboardSkeleton />
-      ) : null}
+            </Tabs>
+          </div>
+        ) : (
+          <LeaderboardSkeleton />
+        )
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium mb-2">Ranking não disponível</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Entre na competição para ver o ranking completo.
+            </p>
+            {flags?.is_joinable && (
+              <Button onClick={() => navigate(`/competicao/entrar/${competition.code}`)}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Entrar na Competição
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Daily Scores Panel - only show for active or finished competitions */}
       {(status.status === "active" || isFinished) && leaderboard && (() => {
