@@ -88,7 +88,7 @@ export function PlatformSettings() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Car className="w-5 h-5 text-primary" />
-              <CardTitle className="text-lg">Plataformas</CardTitle>
+              <CardTitle className="text-lg">Plataformas e outras receitas</CardTitle>
             </div>
             <Button
               variant="outline"
@@ -100,9 +100,10 @@ export function PlatformSettings() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Selecione as plataformas que você trabalha. Apenas as habilitadas aparecerão ao lançar receitas.
+            Selecione as plataformas e outras fontes de receita que você usa. Apenas as habilitadas aparecerão ao lançar receitas.
           </p>
         </CardHeader>
+
         <CardContent className="space-y-4">
           {/* System Platforms */}
           {systemPlatforms.map((platform) => {
@@ -116,11 +117,15 @@ export function PlatformSettings() {
                 className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-secondary/30 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${getPlatformColor(platform.key)}`} />
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: platform.color || "#FFC700" }}
+                  />
                   <Label htmlFor={`platform-${platform.key}`} className="font-medium cursor-pointer">
                     {platform.name}
                   </Label>
                 </div>
+
                 <Switch
                   id={`platform-${platform.key}`}
                   checked={isEnabled}
@@ -144,7 +149,8 @@ export function PlatformSettings() {
           {/* Divider if there are custom platforms */}
           {customPlatforms.length > 0 && (
             <div className="border-t border-border pt-4 mt-4">
-              <p className="text-xs text-muted-foreground mb-3">Suas plataformas customizadas</p>
+              <p className="text-xs text-muted-foreground mb-3">Suas plataformas e receitas personalizadas</p>
+
               {customPlatforms.map((platform) => {
                 const isEnabled = isPlatformEnabled(platform.key);
                 const isLastEnabled = isEnabled && enabledPlatforms.length === 1;
@@ -155,11 +161,15 @@ export function PlatformSettings() {
                     className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-secondary/30 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-primary" />
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: platform.color || "#FFC700" }}
+                      />
                       <Label htmlFor={`platform-${platform.key}`} className="font-medium cursor-pointer">
                         {platform.name}
                       </Label>
                     </div>
+
                     <div className="flex items-center gap-2">
                       <Switch
                         id={`platform-${platform.key}`}
