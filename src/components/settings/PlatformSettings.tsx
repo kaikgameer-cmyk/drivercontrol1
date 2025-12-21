@@ -32,6 +32,7 @@ export function PlatformSettings() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPlatformName, setNewPlatformName] = useState("");
+  const [newPlatformColor, setNewPlatformColor] = useState("#FFC700");
 
   // Initialize user platforms when component mounts
   useEffect(() => {
@@ -43,24 +44,21 @@ export function PlatformSettings() {
   const isLoading = loadingPlatforms || loadingUserPlatforms;
 
   const handleCreatePlatform = () => {
-    if (!newPlatformName.trim()) return;
-    
+    const trimmedName = newPlatformName.trim();
+    if (!trimmedName) return;
+
+    const safeColor = /^#[0-9A-Fa-f]{6}$/.test(newPlatformColor) ? newPlatformColor : "#FFC700";
+
     createPlatform.mutate(
-      { name: newPlatformName },
+      { name: trimmedName, color: safeColor },
       {
         onSuccess: () => {
           setNewPlatformName("");
+          setNewPlatformColor("#FFC700");
           setIsCreateDialogOpen(false);
         },
       }
     );
-  };
-
-  const getPlatformColor = (key: string): string => {
-    if (key === "uber") return "bg-black";
-    if (key === "99") return "bg-[#FFB800]";
-    if (key === "indrive") return "bg-[#2DCC70]";
-    return "bg-primary";
   };
 
   if (isLoading) {
@@ -69,7 +67,7 @@ export function PlatformSettings() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Car className="w-5 h-5 text-primary" />
-            <CardTitle className="text-lg">Plataformas</CardTitle>
+            <CardTitle className="text-lg">Plataformas e outras receitas</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
@@ -203,28 +201,46 @@ export function PlatformSettings() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cadastrar Nova Plataforma</DialogTitle>
+            <DialogTitle>Cadastrar nova plataforma ou receita</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="platform-name">Nome da Plataforma</Label>
-            <Input
-              id="platform-name"
-              placeholder="Ex: Bolt, Lalamove, DriveX..."
-              value={newPlatformName}
-              onChange={(e) => setNewPlatformName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleCreatePlatform();
-                }
-              }}
-            />
+          <div className="py-4 space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="platform-name">Nome</Label>
+              <Input
+                id="platform-name"
+                placeholder="Ex: Bolt, Lojinha, Caixinha de Natal..."
+                value={newPlatformName}
+                onChange={(e) => setNewPlatformName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCreatePlatform();
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cor</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={newPlatformColor}
+                  onChange={(e) => setNewPlatformColor(e.target.value)}
+                  className="h-9 w-9 rounded-md border border-border bg-background p-1 cursor-pointer"
+                />
+                <span className="text-xs text-muted-foreground">
+                  Escolha uma cor para identificar esta plataforma/fonte de receita.
+                </span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setNewPlatformName("");
+                setNewPlatformColor("#FFC700");
                 setIsCreateDialogOpen(false);
               }}
             >

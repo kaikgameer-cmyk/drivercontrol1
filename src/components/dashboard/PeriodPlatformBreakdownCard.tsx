@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Car, Inbox } from "lucide-react";
 import { PlatformRevenue } from "@/hooks/useRevenueByPlatform";
+import { usePlatforms } from "@/hooks/usePlatforms";
 
 interface PeriodPlatformBreakdownCardProps {
   platformRevenues: PlatformRevenue[];
@@ -8,21 +9,16 @@ interface PeriodPlatformBreakdownCardProps {
   isLoading?: boolean;
 }
 
-// Color mapping for common platforms
-const platformColors: Record<string, string> = {
-  uber: "bg-black",
-  "99": "bg-[#FFB800]",
-  indrive: "bg-[#2DCC70]",
-  other: "bg-primary",
-};
-
 export function PeriodPlatformBreakdownCard({
   platformRevenues,
   totalRevenue,
   isLoading,
 }: PeriodPlatformBreakdownCardProps) {
+  const { platforms } = usePlatforms();
+
   const getColorForPlatform = (key: string): string => {
-    return platformColors[key] || "bg-primary";
+    const platform = platforms.find((p) => p.key === key);
+    return platform?.color || "#FFC700";
   };
 
   const getDisplayName = (revenue: PlatformRevenue): string => {
