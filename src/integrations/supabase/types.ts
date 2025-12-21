@@ -1488,6 +1488,26 @@ export type Database = {
         Args: { p_competition_id: string }
         Returns: Json
       }
+      get_competitions_for_tabs: {
+        Args: never
+        Returns: {
+          allow_teams: boolean
+          computed_label: string
+          computed_status: string
+          description: string
+          end_date: string
+          goal_value: number
+          host_user_id: string
+          id: string
+          meta_reached: boolean
+          name: string
+          participants_count: number
+          prize_value: number
+          start_date: string
+          user_is_host: boolean
+          user_is_member: boolean
+        }[]
+      }
       get_listed_competitions: {
         Args: never
         Returns: {
