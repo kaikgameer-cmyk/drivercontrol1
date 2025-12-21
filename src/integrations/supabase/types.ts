@@ -24,6 +24,8 @@ export type Database = {
           pix_key_type: string | null
           pix_updated_at: string | null
           role: string
+          transparency_accepted: boolean
+          transparency_accepted_at: string | null
           user_id: string
         }
         Insert: {
@@ -35,6 +37,8 @@ export type Database = {
           pix_key_type?: string | null
           pix_updated_at?: string | null
           role?: string
+          transparency_accepted?: boolean
+          transparency_accepted_at?: string | null
           user_id: string
         }
         Update: {
@@ -46,6 +50,8 @@ export type Database = {
           pix_key_type?: string | null
           pix_updated_at?: string | null
           role?: string
+          transparency_accepted?: boolean
+          transparency_accepted_at?: string | null
           user_id?: string
         }
         Relationships: [
