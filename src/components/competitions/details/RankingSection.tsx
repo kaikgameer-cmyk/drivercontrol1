@@ -86,7 +86,7 @@ export function RankingSection({
                         {getRankIcon(index)}
                       </div>
                       <div className="relative flex-1 min-w-0">
-                        <p className="font-medium truncate flex items-center gap-1">
+                        <div className="font-medium truncate flex items-center gap-1">
                           {member.display_name}
                           {member.role === "host" && (
                             <Crown className="w-3 h-3 text-primary" />
@@ -96,7 +96,7 @@ export function RankingSection({
                               Você
                             </Badge>
                           )}
-                        </p>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {progressPercent.toFixed(1)}% da meta
                         </p>
