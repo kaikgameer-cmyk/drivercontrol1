@@ -67,7 +67,7 @@ export default function PlatformGuide() {
         {/* Content with sidebar navigation */}
         <div className="flex gap-8">
           {/* Sidebar navigation (desktop) */}
-          <aside className="w-56 shrink-0">
+          <aside className="w-64 shrink-0">
             <GuideNavigation
               activeSection={activeSection}
               onSectionClick={handleSectionClick}
@@ -81,7 +81,7 @@ export default function PlatformGuide() {
             ))}
 
             {/* Footer note */}
-            <div className="text-center py-8 text-muted-foreground text-sm">
+            <div className="text-center py-8 text-muted-foreground text-sm space-y-2">
               <p>
                 Dúvidas? Entre em contato pelo email{" "}
                 <a
@@ -90,6 +90,9 @@ export default function PlatformGuide() {
                 >
                   drivercontrolcontato@outlook.com
                 </a>
+              </p>
+              <p className="text-xs">
+                Última atualização: Dezembro 2025
               </p>
             </div>
           </main>
