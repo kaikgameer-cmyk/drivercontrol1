@@ -247,6 +247,7 @@ export function useCompetitionLeaderboard(competitionId: string | undefined) {
       return data as unknown as LeaderboardData;
     },
     enabled: !!user && !!competitionId,
+    retry: false,
   });
 }
 

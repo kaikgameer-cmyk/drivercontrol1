@@ -51,17 +51,8 @@ export default function Competitions() {
     }
   }, [unreadNotifications, currentNotification, dismissedNotifications]);
 
-  // Lazily finalize finished competitions when this page is opened
-  useEffect(() => {
-    if (!finishedCompetitions || finishedCompetitions.length === 0) return;
-
-    finishedCompetitions.forEach((competition) => {
-      if (!finalizedIds.includes(competition.id)) {
-        finalizeIfNeeded.mutate(competition.id);
-        setFinalizedIds((prev) => [...prev, competition.id]);
-      }
-    });
-  }, [finishedCompetitions, finalizeIfNeeded, finalizedIds]);
+  // Removed automatic finalization loop here to avoid heavy RPC calls on page load.
+  // Finalization remains handled when opening the competition details page.
 
   const handleDismissNotification = (id: string) => {
     dismissMutation.mutate(id);
