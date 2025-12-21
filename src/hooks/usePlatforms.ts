@@ -5,11 +5,12 @@ import { useToast } from "@/hooks/use-toast";
 
 export interface Platform {
   id: string;
-  key: string;
-  name: string;
+  key: string; // slug interno
+  name: string; // nome amigável para exibição
   is_other: boolean;
   is_active: boolean;
   user_id: string | null;
+  color: string; // cor em hex (#RRGGBB)
 }
 
 export interface UserPlatform {
@@ -119,18 +120,33 @@ export function usePlatforms() {
     },
   });
 
-  // Create custom platform
   const createPlatform = useMutation({
-    mutationFn: async ({ name }: { name: string }) => {
+    mutationFn: async ({ name, color }: { name: string; color: string }) => {
       if (!user) throw new Error("Não autenticado");
 
       const trimmedName = name.trim();
       if (!trimmedName) throw new Error("Nome é obrigatório");
 
-      // Generate a key from the name
-      const key = trimmedName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+      // Generate a slug from the name (lowercase, no accents, hyphens)
+      const baseSlug = trimmedName
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .trim()
+        .replace(/\s+/g, "-");
 
-      // Check if platform with same name already exists
+      if (!baseSlug) throw new Error("Nome inválido para gerar identificador interno");
+
+      // Ensure slug uniqueness by suffixing -2, -3, ... if needed
+      let slug = baseSlug;
+      let counter = 2;
+      const existingSlugs = new Set(platforms.map((p) => p.key));
+      while (existingSlugs.has(slug)) {
+        slug = `${baseSlug}-${counter++}`;
+      }
+
+      // Check if platform with same display name already exists
       const existingPlatform = platforms.find(
         (p) => p.name.toLowerCase() === trimmedName.toLowerCase()
       );
@@ -138,15 +154,18 @@ export function usePlatforms() {
         throw new Error("Já existe uma plataforma com esse nome");
       }
 
+      const safeColor = /^#[0-9A-Fa-f]{6}$/.test(color) ? color : "#FFC700";
+
       // Insert platform
       const { data: newPlatform, error: platformError } = await supabase
         .from("platforms")
         .insert({
           user_id: user.id,
-          key: `custom_${key}_${Date.now()}`,
+          key: slug,
           name: trimmedName,
           is_active: true,
           is_other: false,
+          color: safeColor,
         })
         .select()
         .single();
@@ -156,11 +175,14 @@ export function usePlatforms() {
       // Auto-enable the new platform for the user
       const { error: prefError } = await supabase
         .from("user_platforms")
-        .upsert({
-          user_id: user.id,
-          platform_key: newPlatform.key,
-          enabled: true,
-        }, { onConflict: "user_id,platform_key" });
+        .upsert(
+          {
+            user_id: user.id,
+            platform_key: newPlatform.key,
+            enabled: true,
+          },
+          { onConflict: "user_id,platform_key" }
+        );
 
       if (prefError) throw prefError;
 

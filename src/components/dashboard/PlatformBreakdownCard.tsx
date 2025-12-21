@@ -49,9 +49,6 @@ export function PlatformBreakdownCard({ revenues }: PlatformBreakdownCardProps) 
     return platformColors[normalized] || "bg-primary";
   };
 
-  // Build list of all platforms (known + any extras that have data)
-  const allPlatformNames = [...new Set([...KNOWN_PLATFORMS.slice(0, 4), ...platforms.map(p => p.name.toLowerCase())])];
-
   return (
     <Card variant="elevated">
       <CardHeader className="pb-3">
