@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import HostPayoutNotification from "@/components/competitions/HostPayoutNotifica
 import { getCompetitionStatus, getRemainingTime, getMyCompetitionStatusLabel, getAvailableCompetitionStatusLabel } from "@/lib/competitionUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { CompetitionSkeletonGrid } from "@/components/competitions/CompetitionCardSkeleton";
+import { PullToRefresh } from "@/components/ui/pull-to-refresh";
+import { useQueryClient } from "@tanstack/react-query";
 
 const formatCurrency = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -33,12 +35,17 @@ export default function Competitions() {
     return stored ? new Set(JSON.parse(stored)) : new Set();
   });
   
+  const queryClient = useQueryClient();
   const { data: competitions, isLoading } = useCompetitionsForTabs();
   const { data: unreadNotifications } = useUnreadHostNotifications();
   const markReadMutation = useMarkNotificationRead();
   const dismissMutation = useDismissNotification();
 
-  // Derived lists for tabs
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["competitions-for-tabs"] });
+    await queryClient.invalidateQueries({ queryKey: ["unread-host-notifications"] });
+  }, [queryClient]);
+
   const myCompetitions = (competitions || []).filter((comp) => comp.computed_status === "mine");
   const activeListedCompetitions = (competitions || []).filter(
     (comp) => comp.computed_status === "available"
@@ -98,7 +105,7 @@ export default function Competitions() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <PullToRefresh onRefresh={handleRefresh} className="p-4 md:p-6 space-y-6 min-h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
@@ -410,6 +417,6 @@ export default function Competitions() {
           onClose={() => handleDismissNotification(currentNotification.id)}
         />
       )}
-    </div>
+    </PullToRefresh>
   );
 }
