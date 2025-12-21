@@ -986,6 +986,8 @@ export type Database = {
           expires_at: string
           id: string
           token: string
+          token_hash: string
+          token_preview: string | null
           type: string
           used_at: string | null
           user_id: string
@@ -995,6 +997,8 @@ export type Database = {
           expires_at: string
           id?: string
           token: string
+          token_hash: string
+          token_preview?: string | null
           type: string
           used_at?: string | null
           user_id: string
@@ -1004,6 +1008,8 @@ export type Database = {
           expires_at?: string
           id?: string
           token?: string
+          token_hash?: string
+          token_preview?: string | null
           type?: string
           used_at?: string | null
           user_id?: string
@@ -1407,6 +1413,10 @@ export type Database = {
       }
       compute_closing_date: {
         Args: { p_closing_day: number; p_tx_date: string }
+        Returns: string
+      }
+      consume_password_token: {
+        Args: { p_token: string; p_type: string }
         Returns: string
       }
       create_competition:

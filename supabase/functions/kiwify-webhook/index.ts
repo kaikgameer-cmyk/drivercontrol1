@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sendAppEmail, getAppBaseUrl } from "../_shared/email.ts";
-import { generateSecureToken, getTokenExpiration } from "../_shared/tokens.ts";
+import { generateSecureToken, getTokenExpiration, hashToken } from "../_shared/tokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -302,13 +302,15 @@ serve(async (req) => {
             
             // Generate custom token and save to database
             const token = generateSecureToken();
+            const tokenHash = await hashToken(token);
             const expiresAt = getTokenExpiration(24); // 24 hours
 
             const { error: tokenError } = await supabase
               .from("password_tokens")
               .insert({
                 user_id: userId,
-                token: token,
+                token_hash: tokenHash,
+                token_preview: token.length >= 6 ? token.slice(-6) : token,
                 type: "signup",
                 expires_at: expiresAt.toISOString(),
               });
