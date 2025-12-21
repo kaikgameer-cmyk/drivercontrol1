@@ -75,6 +75,8 @@ import { DailyScoresPanel } from "@/components/competitions/DailyScoresPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CompetitionDetailsSkeleton, LeaderboardSkeleton } from "@/components/competitions/CompetitionDetailsSkeleton";
+import { PullToRefresh } from "@/components/ui/pull-to-refresh";
+import { useQueryClient } from "@tanstack/react-query";
 
 const formatCurrency = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -83,7 +85,7 @@ export default function CompetitionDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [showTeamsModal, setShowTeamsModal] = useState(false);
   const [showManageTeamsModal, setShowManageTeamsModal] = useState(false);
@@ -265,7 +267,13 @@ export default function CompetitionDetails() {
     return leaderboard.all_members.filter(m => !membersInTeams.has(m.user_id) && m.is_competitor);
   };
 
+  const handleRefresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", competition?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["competition", id] });
+  };
+
   return (
+    <PullToRefresh onRefresh={handleRefresh} className="h-full">
     <div className="p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-start gap-4">
@@ -829,5 +837,6 @@ export default function CompetitionDetails() {
         />
       )}
     </div>
+    </PullToRefresh>
   );
 }
