@@ -42,6 +42,7 @@ export function useUnreadHostNotifications() {
         .eq("user_id", user?.id)
         .in("type", ["competition_host_payout", "competition_host_no_winner"])
         .is("read_at", null)
+        .is("dismissed_at", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -60,10 +61,26 @@ export function useMarkNotificationRead() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .eq("id", notificationId);
+      const { error } = await supabase.rpc("mark_notification_read", {
+        p_notification_id: notificationId,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["unread-host-notifications"] });
+    },
+  });
+}
+
+export function useDismissNotification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (notificationId: string) => {
+      const { error } = await supabase.rpc("dismiss_notification", {
+        p_notification_id: notificationId,
+      });
 
       if (error) throw error;
     },
