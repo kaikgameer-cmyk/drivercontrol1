@@ -62,7 +62,7 @@ export function EditPixModal({ open, onOpenChange, competitionId }: EditPixModal
     onOpenChange(false);
   };
 
-  const isValid = unmaskPixKey(pixKey).trim().length >= 5;
+  const isValid = unmaskPixKey(pixKey).trim().length >= 5 && pixKeyType.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,9 +102,9 @@ export function EditPixModal({ open, onOpenChange, competitionId }: EditPixModal
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pixKeyType">Tipo da Chave (opcional)</Label>
+              <Label htmlFor="pixKeyType">Tipo da Chave *</Label>
               <Select 
-                value={pixKeyType} 
+                value={pixKeyType || ""} 
                 onValueChange={(value) => {
                   setPixKeyType(value);
                   // Re-format when type changes
@@ -112,10 +112,10 @@ export function EditPixModal({ open, onOpenChange, competitionId }: EditPixModal
                   setPixKey(formatPixKey(unmasked, value));
                 }}
               >
-                <SelectTrigger id="pixKeyType">
+                <SelectTrigger id="pixKeyType" className="bg-background">
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border border-border z-50">
                   {PIX_KEY_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
@@ -123,6 +123,11 @@ export function EditPixModal({ open, onOpenChange, competitionId }: EditPixModal
                   ))}
                 </SelectContent>
               </Select>
+              {!pixKeyType && (
+                <p className="text-xs text-destructive">
+                  Selecione o tipo da chave
+                </p>
+              )}
             </div>
           </div>
         )}
