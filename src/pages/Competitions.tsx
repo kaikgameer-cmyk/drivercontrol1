@@ -191,7 +191,7 @@ export default function Competitions() {
                     key={competition.id}
                     className={`transition-all duration-200 ${
                       competition.is_member 
-                        ? "border-green-400/60 ring-1 ring-green-400/40 shadow-[0_0_18px_rgba(74,222,128,0.18)]" 
+                        ? "border-yellow-400/60 ring-1 ring-yellow-400/40 shadow-[0_0_18px_rgba(250,204,21,0.18)]" 
                         : ""
                     }`}
                   >
