@@ -299,9 +299,9 @@ export function useJoinCompetition() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { 
-      code: string; 
-      password: string; 
+    mutationFn: async (params: {
+      code: string;
+      password: string;
       pix_key: string;
       pix_key_type?: string;
     }) => {
@@ -331,6 +331,32 @@ export function useJoinCompetition() {
   });
 }
 
+export function useAcceptCompetitionTransparency() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { competition_id: string }) => {
+      const { error } = await supabase
+        .from("competition_members")
+        .update({
+          transparency_accepted: true,
+          transparency_accepted_at: new Date().toISOString(),
+          is_competitor: true,
+        })
+        .eq("competition_id", params.competition_id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["my-competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["competition", variables.competition_id] });
+      queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao registrar aceite de transparência");
+    },
+  });
+}
 export function useCreateTeams() {
   const queryClient = useQueryClient();
 
@@ -447,9 +473,10 @@ export function useLeaveCompetition() {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (__, competitionId) => {
       queryClient.invalidateQueries({ queryKey: ["my-competitions"] });
       queryClient.invalidateQueries({ queryKey: ["listed-competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["competition", competitionId] });
       toast.success("Você saiu da competição");
     },
     onError: (error: Error) => {
