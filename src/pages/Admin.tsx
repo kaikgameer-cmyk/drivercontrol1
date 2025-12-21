@@ -32,9 +32,10 @@ import {
   User,
   BadgeCheck,
   Ban,
-  UserPlus
+  UserPlus,
+  FlaskConical
 } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 interface Subscription {
@@ -95,6 +96,7 @@ const getPlanName = (plan: string): string => {
 };
 
 export default function AdminPage() {
+  const navigate = useNavigate();
   const { isAdmin, isLoading: adminLoading, isFetched: adminFetched } = useIsAdmin();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -526,7 +528,16 @@ export default function AdminPage() {
             <p className="text-muted-foreground text-sm">Gerenciamento completo de usuários e assinaturas</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button 
+            size="sm" 
+            onClick={() => navigate("/dashboard/admin/testes-competicoes")}
+            variant="outline"
+            className="w-fit gap-2"
+          >
+            <FlaskConical className="w-4 h-4" />
+            Testes de Competição
+          </Button>
           <Button 
             size="sm" 
             onClick={() => setCreateUserDialogOpen(true)}
