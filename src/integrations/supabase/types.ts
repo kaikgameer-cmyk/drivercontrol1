@@ -127,7 +127,7 @@ export type Database = {
           created_by: string
           description?: string | null
           end_date: string
-          goal_type: string
+          goal_type?: string
           goal_value: number
           id?: string
           is_public?: boolean | null
