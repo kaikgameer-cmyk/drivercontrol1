@@ -43,7 +43,7 @@ const step1Schema = z.object({
 
 const step2Schema = z.object({
   pix_key: z.string().min(5, "Chave PIX deve ter no mínimo 5 caracteres"),
-  pix_key_type: z.string().optional(),
+  pix_key_type: z.string().min(1, "Selecione o tipo da chave"),
 });
 
 type Step1Values = z.infer<typeof step1Schema>;
@@ -273,22 +273,22 @@ export default function JoinCompetitionModal({
                 name="pix_key_type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo da Chave (opcional)</FormLabel>
+                    <FormLabel>Tipo da Chave *</FormLabel>
                     <Select 
+                      value={field.value || ""}
                       onValueChange={(value) => {
                         field.onChange(value);
                         // Re-format the pix_key when type changes
                         const currentKey = unmaskPixKey(step2Form.getValues("pix_key"));
                         step2Form.setValue("pix_key", formatPixKey(currentKey, value));
-                      }} 
-                      value={field.value}
+                      }}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background">
                           <SelectValue placeholder="Selecione o tipo" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="bg-background border border-border z-50">
                         <SelectItem value="cpf">CPF</SelectItem>
                         <SelectItem value="cnpj">CNPJ</SelectItem>
                         <SelectItem value="email">E-mail</SelectItem>
