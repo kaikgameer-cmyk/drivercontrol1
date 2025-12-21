@@ -22,13 +22,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Eye, EyeOff, Loader2, Copy, Check, Link2, Trophy } from "lucide-react";
 import { useCreateCompetition } from "@/hooks/useCompetitions";
 import { format, addDays } from "date-fns";
@@ -37,7 +30,6 @@ const createSchema = z
   .object({
     name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100),
     description: z.string().max(500).optional(),
-    goal_type: z.enum(["income_goal", "expense_limit", "saving_goal", "net_goal"]),
     goal_value: z.coerce.number().positive("Valor deve ser positivo"),
     start_date: z.string().min(1, "Data de início é obrigatória"),
     end_date: z.string().min(1, "Data de fim é obrigatória"),
@@ -81,7 +73,6 @@ export default function CreateCompetitionModal({
     defaultValues: {
       name: "",
       description: "",
-      goal_type: "income_goal",
       goal_value: 0,
       start_date: today,
       end_date: defaultEnd,
@@ -99,7 +90,7 @@ export default function CreateCompetitionModal({
     const result = await createMutation.mutateAsync({
       name: values.name,
       description: values.description,
-      goal_type: values.goal_type,
+      goal_type: "income_goal",
       goal_value: values.goal_value,
       start_date: values.start_date,
       end_date: values.end_date,
@@ -252,50 +243,24 @@ export default function CreateCompetitionModal({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="goal_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Meta *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="income_goal">Meta de Receita</SelectItem>
-                        <SelectItem value="expense_limit">Limite de Gastos</SelectItem>
-                        <SelectItem value="saving_goal">Meta de Economia</SelectItem>
-                        <SelectItem value="net_goal">Meta de Lucro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="goal_value"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor da Meta *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0,00"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="goal_value"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Meta de Receita (R$) *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="5000"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
