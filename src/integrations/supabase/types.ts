@@ -1382,6 +1382,14 @@ export type Database = {
       }
     }
     Functions: {
+      admin_clear_competition_notifications: {
+        Args: { p_competition_id: string }
+        Returns: Json
+      }
+      admin_simulate_competition_finish: {
+        Args: { p_competition_id: string; p_meta_reached: boolean }
+        Returns: Json
+      }
       assign_member_to_team: {
         Args: { p_competition_id: string; p_team_id: string; p_user_id: string }
         Returns: Json
