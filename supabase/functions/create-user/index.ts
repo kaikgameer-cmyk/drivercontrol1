@@ -109,10 +109,13 @@ serve(async (req) => {
     const { data: { user: callerUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !callerUser) {
       console.log("Auth error:", authError?.message || "User not found");
-      return new Response(JSON.stringify({ error: "Unauthorized", details: authError?.message }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
     
     console.log("User authenticated:", callerUser.id);
@@ -177,15 +180,17 @@ serve(async (req) => {
         userMessage = "Já existe um usuário cadastrado com este e-mail.";
       }
       
-      return new Response(JSON.stringify({ 
-        ok: false,
-        error: userMessage, 
-        code: errorCode,
-        details: createError.message
-      }), {
-        status: statusCode,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ 
+          ok: false,
+          error: userMessage, 
+          code: errorCode,
+        }),
+        {
+          status: statusCode,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Handle profile creation/update
