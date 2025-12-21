@@ -407,9 +407,12 @@ export function useJoinCompetition() {
 
 export function useAcceptCompetitionTransparency() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (params: { competition_id: string }) => {
+      if (!user) throw new Error("Usuário não autenticado");
+      
       const { error } = await supabase
         .from("competition_members")
         .update({
@@ -417,11 +420,13 @@ export function useAcceptCompetitionTransparency() {
           transparency_accepted_at: new Date().toISOString(),
           is_competitor: true,
         })
-        .eq("competition_id", params.competition_id);
+        .eq("competition_id", params.competition_id)
+        .eq("user_id", user.id);
 
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["competitions-for-tabs"] });
       queryClient.invalidateQueries({ queryKey: ["my-competitions"] });
       queryClient.invalidateQueries({ queryKey: ["competition", variables.competition_id] });
       queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
