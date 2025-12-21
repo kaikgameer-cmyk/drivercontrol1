@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trophy, Users, Calendar, Target, LogIn, Gift, Crown, CheckCircle, Bell } from "lucide-react";
 import { useMyCompetitions, useListedCompetitions, useFinishedCompetitions, useFinalizeCompetitionIfNeeded } from "@/hooks/useCompetitions";
-import { useUnreadHostNotifications, useMarkNotificationRead, HostNotification } from "@/hooks/useNotifications";
+import { useUnreadHostNotifications, useMarkNotificationRead, useDismissNotification, HostNotification } from "@/hooks/useNotifications";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import JoinCompetitionModal from "@/components/competitions/JoinCompetitionModal";
@@ -26,20 +26,28 @@ export default function Competitions() {
   const [activeTab, setActiveTab] = useState("minhas");
   const [currentNotification, setCurrentNotification] = useState<HostNotification | null>(null);
   const [finalizedIds, setFinalizedIds] = useState<string[]>([]);
+  const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(() => {
+    const stored = sessionStorage.getItem("dismissed_notifications");
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
   
   const { data: myCompetitions, isLoading: loadingMine } = useMyCompetitions();
   const { data: listedCompetitions, isLoading: loadingListed } = useListedCompetitions();
   const { data: finishedCompetitions, isLoading: loadingFinished } = useFinishedCompetitions();
   const { data: unreadNotifications } = useUnreadHostNotifications();
   const markReadMutation = useMarkNotificationRead();
+  const dismissMutation = useDismissNotification();
   const finalizeIfNeeded = useFinalizeCompetitionIfNeeded();
 
-  // Show first unread notification automatically
+  // Show first unread notification automatically (with session guard)
   useEffect(() => {
     if (unreadNotifications && unreadNotifications.length > 0 && !currentNotification) {
-      setCurrentNotification(unreadNotifications[0]);
+      const nextNotification = unreadNotifications.find((n) => !dismissedNotifications.has(n.id));
+      if (nextNotification) {
+        setCurrentNotification(nextNotification);
+      }
     }
-  }, [unreadNotifications, currentNotification]);
+  }, [unreadNotifications, currentNotification, dismissedNotifications]);
 
   // Lazily finalize finished competitions when this page is opened
   useEffect(() => {
@@ -52,6 +60,24 @@ export default function Competitions() {
       }
     });
   }, [finishedCompetitions, finalizeIfNeeded, finalizedIds]);
+
+  const handleDismissNotification = (id: string) => {
+    dismissMutation.mutate(id);
+    const newSet = new Set(dismissedNotifications);
+    newSet.add(id);
+    setDismissedNotifications(newSet);
+    sessionStorage.setItem("dismissed_notifications", JSON.stringify(Array.from(newSet)));
+    setCurrentNotification(null);
+  };
+
+  const handleMarkReadNotification = (id: string) => {
+    markReadMutation.mutate(id);
+    const newSet = new Set(dismissedNotifications);
+    newSet.add(id);
+    setDismissedNotifications(newSet);
+    sessionStorage.setItem("dismissed_notifications", JSON.stringify(Array.from(newSet)));
+    setCurrentNotification(null);
+  };
 
   // Filter listed to only show non-finished
   const activeListedCompetitions = listedCompetitions?.filter((comp) => {
@@ -99,16 +125,21 @@ export default function Competitions() {
     }
   };
 
-  const getFinishedResultText = (payout: { status: string; payout_value: number } | null) => {
+  const getFinishedBadge = (payout: { status: string; payout_value: number } | null) => {
     if (!payout) return null;
     
     switch (payout.status) {
       case "winner":
-        return { text: `Você ganhou: ${formatCurrency(payout.payout_value)}`, className: "text-green-400" };
+        return (
+          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+            <Trophy className="w-3 h-3 mr-1" />
+            Vencedor - {formatCurrency(payout.payout_value)}
+          </Badge>
+        );
       case "loser":
-        return { text: "Não foi dessa vez", className: "text-red-400" };
+        return <Badge variant="secondary">Não foi dessa vez</Badge>;
       case "no_winner":
-        return { text: "Meta não atingida", className: "text-muted-foreground" };
+        return <Badge variant="outline">Sem vencedor</Badge>;
       default:
         return null;
     }
@@ -116,116 +147,112 @@ export default function Competitions() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <Trophy className="w-8 h-8 text-primary" />
             Competições
           </h1>
           <p className="text-muted-foreground mt-1">
-            Desafie amigos e acompanhe seu progresso
+            Compete com outros motoristas e ganhe prêmios
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {unreadNotifications && unreadNotifications.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => setCurrentNotification(unreadNotifications[0])}
-              className="gap-2 border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadNotifications.length} aviso{unreadNotifications.length > 1 ? "s" : ""}
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => navigate("/dashboard/competicoes/ranking")} className="gap-2">
-            <Crown className="w-4 h-4" />
-            Ranking
-          </Button>
-          <Button onClick={() => setShowCreateModal(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Criar
-          </Button>
-          <Button variant="outline" onClick={() => setShowJoinModal(true)} className="gap-2">
-            <LogIn className="w-4 h-4" />
-            Entrar
-          </Button>
-        </div>
+        {unreadNotifications && unreadNotifications.length > 0 && (
+          <div className="relative">
+            <Bell className="w-6 h-6 text-yellow-500 animate-pulse" />
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {unreadNotifications.length}
+            </span>
+          </div>
+        )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
-          <TabsTrigger value="minhas" className="gap-2">
-            <Trophy className="w-4 h-4" />
-            Minhas
-          </TabsTrigger>
-          <TabsTrigger value="disponiveis" className="gap-2">
-            <Users className="w-4 h-4" />
-            Disponíveis
-          </TabsTrigger>
-          <TabsTrigger value="finalizadas" className="gap-2">
-            <CheckCircle className="w-4 h-4" />
-            Finalizadas
-          </TabsTrigger>
+      <Tabs defaultValue="minhas" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="minhas">Minhas</TabsTrigger>
+          <TabsTrigger value="disponiveis">Disponíveis</TabsTrigger>
+          <TabsTrigger value="finalizadas">Finalizadas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="minhas" className="space-y-4 mt-6">
-          {loadingMine ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : myCompetitions && myCompetitions.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {myCompetitions.map((competition) => {
-                const statusInfo = getMyCompetitionStatusLabel(competition.start_date, competition.end_date);
-                const isHost = competition.competition_members.some(
-                  (m) => m.role === "host"
-                );
+        <TabsContent value="minhas" className="space-y-4 mt-4">
+          <div className="flex gap-3">
+            <Button onClick={() => setShowCreateModal(true)} className="gap-2 flex-1">
+              <Plus className="w-4 h-4" />
+              Criar Competição
+            </Button>
+            <Button onClick={() => setShowJoinModal(true)} variant="outline" className="gap-2 flex-1">
+              <LogIn className="w-4 h-4" />
+              Entrar
+            </Button>
+          </div>
 
+          {loadingMine ? (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+              </CardContent>
+            </Card>
+          ) : myCompetitions && myCompetitions.length > 0 ? (
+            <div className="space-y-3">
+              {myCompetitions.map((comp) => {
+                const status = getCompetitionStatus(comp.start_date, comp.end_date);
+                const statusLabel = getMyCompetitionStatusLabel(comp.start_date, comp.end_date, comp.role);
+                
                 return (
                   <Card
-                    key={competition.id}
+                    key={comp.id}
                     className="cursor-pointer hover:border-primary/50 transition-colors"
-                    onClick={() => navigate(`/dashboard/competicoes/${competition.code}`)}
+                    onClick={() => navigate(`/dashboard/competicoes/${comp.code}`)}
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg line-clamp-1">
-                          {competition.name}
-                        </CardTitle>
-                        <div className="flex gap-1">
-                          {isHost && (
-                            <Badge variant="outline" className="text-primary border-primary">
-                              Host
-                            </Badge>
-                          )}
-                          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-lg">{comp.name}</CardTitle>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Users className="w-4 h-4" />
+                            {comp.member_count} participante{comp.member_count !== 1 ? 's' : ''}
+                            {comp.role === "host" && (
+                              <Badge variant="outline" className="text-xs">
+                                <Crown className="w-3 h-3 mr-1" />
+                                Host
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          {statusLabel}
                         </div>
                       </div>
-                      <CardDescription className="line-clamp-2">
-                        {competition.description || "Meta de Receita"}
-                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Target className="w-4 h-4" />
-                        <span>Meta: {formatCurrency(competition.goal_value)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Gift className="w-4 h-4 text-primary" />
-                        <span>Prêmio: {formatCurrency(competition.prize_value)}</span>
+                    <CardContent className="space-y-2">
+                      {comp.description && (
+                        <p className="text-sm text-muted-foreground">{comp.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" />
+                          <span className="text-muted-foreground">Meta:</span>
+                          <span className="font-semibold">{formatCurrency(comp.goal_value)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-yellow-500" />
+                          <span className="text-muted-foreground">Prêmio:</span>
+                          <span className="font-semibold text-yellow-500">
+                            {formatCurrency(comp.prize_value)}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4" />
                         <span>
-                          {format(parseISO(competition.start_date), "dd/MM", { locale: ptBR })} -{" "}
-                          {format(parseISO(competition.end_date), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(parseISO(comp.start_date), "dd/MM/yy", { locale: ptBR })} -{" "}
+                          {format(parseISO(comp.end_date), "dd/MM/yy", { locale: ptBR })}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Users className="w-4 h-4" />
-                        <span className="text-primary font-medium">
-                          {getDaysInfo(competition.start_date, competition.end_date)}
-                        </span>
+                        {status.status === "active" && (
+                          <span className="ml-auto text-primary font-medium">
+                            {getDaysInfo(comp.start_date, comp.end_date)}
+                          </span>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -234,98 +261,99 @@ export default function Competitions() {
             </div>
           ) : (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Trophy className="w-12 h-12 text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nenhuma competição ativa</h3>
-                <p className="text-muted-foreground mb-4 max-w-sm">
-                  Crie uma competição para desafiar amigos ou entre em uma usando o código
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={() => setShowCreateModal(true)} className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Criar
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowJoinModal(true)}>
-                    Entrar com código
-                  </Button>
+              <CardContent className="pt-6 text-center space-y-4">
+                <Trophy className="w-16 h-16 text-muted-foreground mx-auto" />
+                <div>
+                  <p className="font-medium">Você ainda não está em nenhuma competição</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Crie uma nova ou entre em uma existente
+                  </p>
                 </div>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="disponiveis" className="space-y-4 mt-6">
+        <TabsContent value="disponiveis" className="space-y-4 mt-4">
           {loadingListed ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+              </CardContent>
+            </Card>
           ) : activeListedCompetitions && activeListedCompetitions.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {activeListedCompetitions.map((competition) => {
-                const statusInfo = getAvailableCompetitionStatusLabel(competition.start_date, competition.end_date);
+            <div className="space-y-3">
+              {activeListedCompetitions.map((comp) => {
+                const status = getCompetitionStatus(comp.start_date, comp.end_date);
+                const statusLabel = getAvailableCompetitionStatusLabel(
+                  comp.start_date,
+                  comp.end_date,
+                  comp.is_member
+                );
+                const isFull = comp.max_members && comp.member_count >= comp.max_members;
 
                 return (
-                  <Card 
-                    key={competition.id}
-                    className={`transition-all duration-200 ${
-                      competition.is_member 
-                        ? "border-yellow-400/60 ring-1 ring-yellow-400/40 shadow-[0_0_18px_rgba(250,204,21,0.18)]" 
-                        : ""
+                  <Card
+                    key={comp.id}
+                    className={`cursor-pointer hover:border-primary/50 transition-colors ${
+                      comp.is_member ? "border-primary/30" : ""
                     }`}
+                    onClick={() =>
+                      comp.is_member
+                        ? navigate(`/dashboard/competicoes/${comp.code}`)
+                        : handleJoinFromListed(comp.code)
+                    }
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg line-clamp-1">
-                          {competition.name}
-                        </CardTitle>
-                        <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-lg">{comp.name}</CardTitle>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Users className="w-4 h-4" />
+                            {comp.member_count}
+                            {comp.max_members ? ` / ${comp.max_members}` : ""} participante
+                            {comp.member_count !== 1 ? "s" : ""}
+                            {comp.allow_teams && (
+                              <Badge variant="outline" className="text-xs">
+                                Times
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          {statusLabel}
+                          {isFull && <Badge variant="destructive">Lotada</Badge>}
+                        </div>
                       </div>
-                      <CardDescription className="line-clamp-2">
-                        {competition.description || "Meta de Receita"}
-                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Target className="w-4 h-4" />
-                        <span>Meta: {formatCurrency(competition.goal_value)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Gift className="w-4 h-4 text-primary" />
-                        <span>Prêmio: {formatCurrency(competition.prize_value)}</span>
+                    <CardContent className="space-y-2">
+                      {comp.description && (
+                        <p className="text-sm text-muted-foreground">{comp.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" />
+                          <span className="text-muted-foreground">Meta:</span>
+                          <span className="font-semibold">{formatCurrency(comp.goal_value)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-yellow-500" />
+                          <span className="text-muted-foreground">Prêmio:</span>
+                          <span className="font-semibold text-yellow-500">
+                            {formatCurrency(comp.prize_value)}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4" />
                         <span>
-                          {format(parseISO(competition.start_date), "dd/MM", { locale: ptBR })} -{" "}
-                          {format(parseISO(competition.end_date), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(parseISO(comp.start_date), "dd/MM/yy", { locale: ptBR })} -{" "}
+                          {format(parseISO(comp.end_date), "dd/MM/yy", { locale: ptBR })}
                         </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Users className="w-4 h-4" />
-                          <span>
-                            {competition.member_count} participante{competition.member_count !== 1 ? "s" : ""}
-                            {competition.max_members && ` / ${competition.max_members}`}
+                        {status.status === "active" && (
+                          <span className="ml-auto text-primary font-medium">
+                            {getDaysInfo(comp.start_date, comp.end_date)}
                           </span>
-                        </div>
-                        {!competition.is_member && (
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleJoinFromListed(competition.code)}
-                            className="gap-1"
-                          >
-                            <LogIn className="w-3 h-3" />
-                            Entrar
-                          </Button>
-                        )}
-                        {competition.is_member && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => navigate(`/dashboard/competicoes/${competition.code}`)}
-                          >
-                            Ver
-                          </Button>
                         )}
                       </div>
                     </CardContent>
@@ -335,79 +363,85 @@ export default function Competitions() {
             </div>
           ) : (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nenhuma competição disponível</h3>
-                <p className="text-muted-foreground mb-4 max-w-sm">
-                  Não há competições públicas no momento. Crie a sua ou entre com um código!
-                </p>
+              <CardContent className="pt-6 text-center space-y-4">
+                <Trophy className="w-16 h-16 text-muted-foreground mx-auto" />
+                <div>
+                  <p className="font-medium">Nenhuma competição disponível no momento</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Crie uma nova competição para começar
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="finalizadas" className="space-y-4 mt-6">
+        <TabsContent value="finalizadas" className="space-y-4 mt-4">
           {loadingFinished ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+              </CardContent>
+            </Card>
           ) : finishedCompetitions && finishedCompetitions.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {finishedCompetitions.map((competition) => {
-                const isHost = competition.competition_members.some(
-                  (m) => m.role === "host"
-                );
-                const resultText = getFinishedResultText(competition.payout);
+            <div className="space-y-3">
+              {finishedCompetitions.map((comp) => {
+                const borderStyle = getFinishedCardStyles(comp.payout);
+                const badge = getFinishedBadge(comp.payout);
 
                 return (
                   <Card
-                    key={competition.id}
-                    className={`cursor-pointer hover:border-primary/50 transition-all duration-200 ${getFinishedCardStyles(competition.payout)}`}
-                    onClick={() => navigate(`/dashboard/competicoes/${competition.code}`)}
+                    key={comp.id}
+                    className={`cursor-pointer hover:opacity-90 transition-opacity ${borderStyle}`}
+                    onClick={() => navigate(`/dashboard/competicoes/${comp.code}`)}
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg line-clamp-1">
-                          {competition.name}
-                        </CardTitle>
-                        <div className="flex gap-1">
-                          {isHost && (
-                            <Badge variant="outline" className="text-primary border-primary">
-                              Host
-                            </Badge>
-                          )}
-                          {competition.payout?.status === "no_winner" && (
-                            <Badge variant="outline">Sem vencedor</Badge>
-                          )}
-                          <Badge variant="outline">Finalizada</Badge>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-lg">{comp.name}</CardTitle>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Users className="w-4 h-4" />
+                            {comp.member_count} participante{comp.member_count !== 1 ? "s" : ""}
+                            {comp.role === "host" && (
+                              <Badge variant="outline" className="text-xs">
+                                <Crown className="w-3 h-3 mr-1" />
+                                Host
+                              </Badge>
+                            )}
+                          </div>
                         </div>
+                        {badge}
                       </div>
-                      <CardDescription className="line-clamp-2">
-                        {competition.description || "Meta de Receita"}
-                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Target className="w-4 h-4" />
-                        <span>Meta: {formatCurrency(competition.goal_value)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Gift className="w-4 h-4 text-primary" />
-                        <span>Prêmio: {formatCurrency(competition.prize_value)}</span>
+                    <CardContent className="space-y-2">
+                      {comp.description && (
+                        <p className="text-sm text-muted-foreground">{comp.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" />
+                          <span className="text-muted-foreground">Meta:</span>
+                          <span className="font-semibold">{formatCurrency(comp.goal_value)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-yellow-500" />
+                          <span className="text-muted-foreground">Prêmio:</span>
+                          <span className="font-semibold text-yellow-500">
+                            {formatCurrency(comp.prize_value)}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4" />
                         <span>
-                          {format(parseISO(competition.start_date), "dd/MM", { locale: ptBR })} -{" "}
-                          {format(parseISO(competition.end_date), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(parseISO(comp.start_date), "dd/MM/yy", { locale: ptBR })} -{" "}
+                          {format(parseISO(comp.end_date), "dd/MM/yy", { locale: ptBR })}
                         </span>
+                        <Badge variant="outline" className="ml-auto">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Finalizada
+                        </Badge>
                       </div>
-                      {resultText && (
-                        <div className={`flex items-center gap-2 text-sm font-medium ${resultText.className}`}>
-                          <Trophy className="w-4 h-4" />
-                          <span>{resultText.text}</span>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 );
@@ -415,10 +449,10 @@ export default function Competitions() {
             </div>
           ) : (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <CheckCircle className="w-12 h-12 text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nenhuma competição finalizada</h3>
-                <p className="text-muted-foreground mb-4 max-w-sm">
+              <CardContent className="pt-6 text-center space-y-4">
+                <Trophy className="w-16 h-16 text-muted-foreground mx-auto" />
+                <p className="font-medium">Nenhuma competição finalizada ainda</p>
+                <p className="text-sm text-muted-foreground">
                   Suas competições finalizadas aparecerão aqui com o resultado
                 </p>
               </CardContent>
@@ -441,10 +475,8 @@ export default function Competitions() {
       {currentNotification && (
         <HostPayoutNotification
           notification={currentNotification}
-          onMarkRead={(id) => {
-            markReadMutation.mutate(id);
-          }}
-          onClose={() => setCurrentNotification(null)}
+          onMarkRead={handleMarkReadNotification}
+          onClose={() => handleDismissNotification(currentNotification.id)}
         />
       )}
     </div>

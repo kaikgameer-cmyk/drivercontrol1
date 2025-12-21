@@ -898,6 +898,7 @@ export type Database = {
         Row: {
           competition_id: string
           created_at: string
+          dismissed_at: string | null
           id: string
           payload: Json
           read_at: string | null
@@ -907,6 +908,7 @@ export type Database = {
         Insert: {
           competition_id: string
           created_at?: string
+          dismissed_at?: string | null
           id?: string
           payload?: Json
           read_at?: string | null
@@ -916,6 +918,7 @@ export type Database = {
         Update: {
           competition_id?: string
           created_at?: string
+          dismissed_at?: string | null
           id?: string
           payload?: Json
           read_at?: string | null
@@ -1458,6 +1461,10 @@ export type Database = {
         Returns: Json
       }
       delete_fuel_expense: { Args: { p_expense_id: string }; Returns: boolean }
+      dismiss_notification: {
+        Args: { p_notification_id: string }
+        Returns: boolean
+      }
       finalize_competition: {
         Args: { p_competition_id: string }
         Returns: Json
@@ -1526,6 +1533,10 @@ export type Database = {
           }
       mark_finish_result_popup_shown: {
         Args: { p_competition_id: string }
+        Returns: boolean
+      }
+      mark_notification_read: {
+        Args: { p_notification_id: string }
         Returns: boolean
       }
       mark_winner_popup_shown: {
