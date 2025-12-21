@@ -451,6 +451,7 @@ export function useCreateTeams() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
+      queryClient.invalidateQueries({ queryKey: ["competition-page", variables.competition_id] });
       toast.success("Times criados e participantes distribuídos!");
     },
     onError: (error: Error) => {
@@ -479,6 +480,7 @@ export function useAssignMemberToTeam() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
+      queryClient.invalidateQueries({ queryKey: ["competition-page", variables.competition_id] });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Erro ao atribuir membro ao time");
@@ -504,6 +506,7 @@ export function useUnassignMemberFromTeam() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
+      queryClient.invalidateQueries({ queryKey: ["competition-page", variables.competition_id] });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Erro ao remover membro do time");
@@ -530,6 +533,7 @@ export function useUpdateTeamName() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
+      queryClient.invalidateQueries({ queryKey: ["competition-page", variables.competition_id] });
       toast.success("Nome do time atualizado!");
     },
     onError: (error: Error) => {
@@ -841,6 +845,7 @@ export function useUpdateCompetition() {
       queryClient.invalidateQueries({ queryKey: ["competitions-for-tabs"] });
       queryClient.invalidateQueries({ queryKey: ["my-competitions"] });
       queryClient.invalidateQueries({ queryKey: ["competition-by-id", variables.competition_id] });
+      queryClient.invalidateQueries({ queryKey: ["competition-page", variables.competition_id] });
       queryClient.invalidateQueries({ queryKey: ["competition-leaderboard", variables.competition_id] });
       toast.success("Competição atualizada com sucesso!");
     },

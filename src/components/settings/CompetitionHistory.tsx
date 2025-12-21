@@ -101,7 +101,7 @@ export function CompetitionHistory() {
             {history.map((competition) => (
               <Link
                 key={competition.id}
-                to={`/dashboard/competicoes/${competition.code}`}
+                to={`/dashboard/competicoes/${competition.id}`}
                 className="block"
               >
                 <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors">
