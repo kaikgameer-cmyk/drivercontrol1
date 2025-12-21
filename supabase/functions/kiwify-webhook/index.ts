@@ -122,8 +122,19 @@ serve(async (req) => {
 
     // Parse webhook payload
     const payload = await req.json();
-    console.log("=== WEBHOOK PAYLOAD ===");
-    console.log(JSON.stringify(payload, null, 2));
+
+    // Environment-aware logging to avoid leaking sensitive data in production
+    const environment = Deno.env.get("ENVIRONMENT") || "production";
+
+    if (environment === "development") {
+      console.log("=== WEBHOOK PAYLOAD (DEV) ===");
+      console.log(JSON.stringify(payload, null, 2));
+    } else {
+      console.log("Webhook received (sanitized log)", {
+        event: payload.webhook_event_type || payload.event || payload.trigger || payload.order_status || "",
+        timestamp: Date.now(),
+      });
+    }
 
     // Extract data from payload (adapt based on actual Kiwify payload structure)
     const eventName = payload.webhook_event_type || payload.event || payload.trigger || payload.order_status || "";
@@ -139,12 +150,22 @@ serve(async (req) => {
     const kiwifyProductId = product.id || payload.product_id || "";
     const rawInterval = subscription.plan?.frequency || subscription.interval || subscription.billing_interval || "month";
     
-    console.log("Extracted data:");
-    console.log("  - Email:", email);
-    console.log("  - Name:", name);
-    console.log("  - Subscription ID:", kiwifySubscriptionId);
-    console.log("  - Product ID:", kiwifyProductId);
-    console.log("  - Raw interval:", rawInterval);
+    if (environment === "development") {
+      console.log("Extracted data (DEV):");
+      console.log("  - Email:", email);
+      console.log("  - Name:", name);
+      console.log("  - Subscription ID:", kiwifySubscriptionId);
+      console.log("  - Product ID:", kiwifyProductId);
+      console.log("  - Raw interval:", rawInterval);
+    } else {
+      const emailDomain = email?.split("@")[1] || null;
+      console.log("Extracted data (sanitized):", {
+        email_domain: emailDomain,
+        subscription_id: kiwifySubscriptionId,
+        product_id: kiwifyProductId,
+        raw_interval: rawInterval,
+      });
+    }
 
     // Validate required fields
     if (!email) {
