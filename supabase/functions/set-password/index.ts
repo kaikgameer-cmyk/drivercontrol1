@@ -16,6 +16,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function hashToken(token: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(token);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 serve(async (req) => {
   console.log("=== SET-PASSWORD FUNCTION ===");
   console.log("Method:", req.method);
@@ -46,11 +54,13 @@ serve(async (req) => {
 
       console.log("Validating token...");
 
-      // Find token in database
+      const tokenHash = await hashToken(token);
+
+      // Find token in database using hashed value
       const { data: tokenData, error: tokenError } = await supabase
         .from("password_tokens")
         .select("*")
-        .eq("token", token)
+        .eq("token_hash", tokenHash)
         .single();
 
       if (tokenError || !tokenData) {
@@ -136,44 +146,27 @@ serve(async (req) => {
 
       console.log("Setting password...");
 
-      // Find and validate token
-      const { data: tokenData, error: tokenError } = await supabase
-        .from("password_tokens")
-        .select("*")
-        .eq("token", token)
-        .single();
+      // Resolve and validate token via SECURITY DEFINER function (marks as used)
+      const { data: consumedUserId, error: consumeError } = await supabase.rpc(
+        "consume_password_token",
+        {
+          p_token: token,
+          p_type: "signup",
+        },
+      );
 
-      if (tokenError || !tokenData) {
-        console.log("❌ Token not found:", tokenError?.message);
+      if (consumeError || !consumedUserId) {
+        console.log("❌ Invalid or expired token via consume_password_token:", consumeError?.message);
         return new Response(
-          JSON.stringify({ error: "Link inválido ou não encontrado" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Check if token is expired
-      const now = new Date();
-      const expiresAt = new Date(tokenData.expires_at);
-      if (now > expiresAt) {
-        console.log("❌ Token expired");
-        return new Response(
-          JSON.stringify({ error: "Este link expirou. Solicite um novo." }),
+          JSON.stringify({ error: "Link inválido ou expirado" }),
           { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Check if token was already used
-      if (tokenData.used_at) {
-        console.log("❌ Token already used");
-        return new Response(
-          JSON.stringify({ error: "Este link já foi utilizado." }),
-          { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      const userId = consumedUserId as string;
 
-      // Update user password
       const { error: updateError } = await supabase.auth.admin.updateUserById(
-        tokenData.user_id,
+        userId,
         { password: newPassword }
       );
 
@@ -185,19 +178,10 @@ serve(async (req) => {
         );
       }
 
-      // Mark token as used
-      const { error: markError } = await supabase
-        .from("password_tokens")
-        .update({ used_at: new Date().toISOString() })
-        .eq("id", tokenData.id);
-
-      if (markError) {
-        console.error("⚠️ Error marking token as used:", markError);
-        // Continue anyway, password was updated
-      }
+      // Token was already marked as used by consume_password_token; no additional update needed
 
       // Get user email for response
-      const { data: userData } = await supabase.auth.admin.getUserById(tokenData.user_id);
+      const { data: userData } = await supabase.auth.admin.getUserById(userId);
 
       console.log("✅ Password set successfully for user:", userData?.user?.email);
 
