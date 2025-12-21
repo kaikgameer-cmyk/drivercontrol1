@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/select";
 import { LogIn, Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, Key } from "lucide-react";
 import { useJoinCompetition } from "@/hooks/useCompetitions";
-import { formatPixKey, unmaskPixKey, detectPixType, PixKeyType } from "@/lib/pixMasks";
 
 const step1Schema = z.object({
   code: z
@@ -252,25 +251,7 @@ export default function JoinCompetitionModal({
                     <FormControl>
                       <Input
                         placeholder="CPF, E-mail, Celular ou Chave Aleatória"
-                        value={field.value}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          field.onChange(raw);
-                          const currentType = (step2Form.getValues("pix_key_type") || "") as PixKeyType;
-                          if (!currentType) {
-                            const autoType = detectPixType(raw);
-                            if (autoType) {
-                              step2Form.setValue("pix_key_type", autoType);
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          const type = (step2Form.getValues("pix_key_type") || "") as PixKeyType;
-                          if (type) {
-                            const formatted = formatPixKey(step2Form.getValues("pix_key"), type);
-                            step2Form.setValue("pix_key", formatted);
-                          }
-                        }}
+                        {...field}
                       />
                     </FormControl>
                     <FormDescription>
@@ -289,13 +270,7 @@ export default function JoinCompetitionModal({
                     <FormLabel>Tipo da Chave *</FormLabel>
                     <Select 
                       value={field.value || ""}
-                      onValueChange={(value: string) => {
-                        const typedValue = value as PixKeyType;
-                        field.onChange(typedValue);
-                        // Re-format the pix_key when type changes
-                        const currentKey = unmaskPixKey(step2Form.getValues("pix_key"));
-                        step2Form.setValue("pix_key", formatPixKey(currentKey, typedValue));
-                      }}
+                      onValueChange={field.onChange}
                     >
                       <FormControl>
                         <SelectTrigger className="bg-background">

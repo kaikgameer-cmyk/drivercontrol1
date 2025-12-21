@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Key } from "lucide-react";
 import { useUpdateMemberPix, useMemberPix } from "@/hooks/useCompetitions";
-import { formatPixKey, unmaskPixKey, detectPixType, PixKeyType } from "@/lib/pixMasks";
+import { unmaskPixKey } from "@/lib/pixMasks";
 
 interface EditPixModalProps {
   open: boolean;
@@ -89,24 +89,7 @@ export function EditPixModal({ open, onOpenChange, competitionId }: EditPixModal
                 id="pixKey"
                 placeholder="CPF, e-mail, telefone ou chave aleatória"
                 value={pixKey}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  setPixKey(raw);
-                  const currentType = (pixKeyType || "") as PixKeyType;
-                  if (!currentType) {
-                    const autoType = detectPixType(raw);
-                    if (autoType) {
-                      setPixKeyType(autoType);
-                    }
-                  }
-                }}
-                onBlur={() => {
-                  const type = (pixKeyType || "") as PixKeyType;
-                  if (type) {
-                    const formatted = formatPixKey(pixKey, type);
-                    setPixKey(formatted);
-                  }
-                }}
+                onChange={(e) => setPixKey(e.target.value)}
               />
               {pixKey.length > 0 && unmaskPixKey(pixKey).trim().length < 5 && (
                 <p className="text-xs text-destructive">
@@ -119,13 +102,7 @@ export function EditPixModal({ open, onOpenChange, competitionId }: EditPixModal
               <Label htmlFor="pixKeyType">Tipo da Chave *</Label>
               <Select 
                 value={pixKeyType || ""} 
-                onValueChange={(value: string) => {
-                  const typedValue = value as PixKeyType;
-                  setPixKeyType(typedValue);
-                  // Re-format when type changes
-                  const unmasked = unmaskPixKey(pixKey);
-                  setPixKey(formatPixKey(unmasked, typedValue));
-                }}
+                onValueChange={setPixKeyType}
               >
                 <SelectTrigger id="pixKeyType" className="bg-background">
                   <SelectValue placeholder="Selecione o tipo" />
