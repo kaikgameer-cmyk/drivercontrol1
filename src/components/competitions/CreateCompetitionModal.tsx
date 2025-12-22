@@ -35,7 +35,18 @@ const createSchema = z
       .optional(),
     goal_value: z.coerce.number().positive("Meta deve ser maior que zero"),
     has_prize: z.boolean().default(false),
-    prize_value: z.coerce.number().min(0).nullable().optional(),
+    prize_value: z
+      .preprocess(
+        (val) => {
+          if (val === "" || val === undefined || val === null) return null;
+          const num = Number(val);
+          return Number.isFinite(num) ? num : null;
+        },
+        z
+          .number()
+          .nonnegative("Prêmio não pode ser negativo")
+          .nullable()
+      ),
     start_date: z.string().min(1, "Data de início é obrigatória"),
     end_date: z.string().min(1, "Data de fim é obrigatória"),
     password: z.string().min(4, "Senha deve ter pelo menos 4 caracteres"),
@@ -57,9 +68,16 @@ const createSchema = z
     message: "Tamanho do time deve ser no mínimo 2",
     path: ["team_size"],
   })
-  .refine((data) => !data.has_prize || (data.prize_value ?? 0) > 0, {
-    message: "Prêmio deve ser maior que zero",
-    path: ["prize_value"],
+  .superRefine((data, ctx) => {
+    if (data.has_prize) {
+      if (data.prize_value === null || data.prize_value === undefined || data.prize_value <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["prize_value"],
+          message: "Valor do prêmio é obrigatório e deve ser maior que zero",
+        });
+      }
+    }
   });
 
 type CreateFormValues = z.infer<typeof createSchema>;
@@ -105,12 +123,16 @@ export default function CreateCompetitionModal({
   const watchHasPrize = form.watch("has_prize");
 
   const onSubmit = async (values: CreateFormValues) => {
+    const hasPrize = values.has_prize;
+    const prizeValue = hasPrize ? values.prize_value : null;
+
     const result = await createMutation.mutateAsync({
       name: values.name,
       description: values.description,
       goal_type: "income_goal",
       goal_value: values.goal_value,
-      prize_value: values.has_prize ? (values.prize_value || 0) : 0,
+      has_prize: hasPrize,
+      prize_value: prizeValue ?? null,
       start_date: values.start_date,
       end_date: values.end_date,
       password: values.password,
@@ -263,45 +285,56 @@ export default function CreateCompetitionModal({
                 )}
               />
 
-              {watchHasPrize && (
-                <FormField
-                  control={form.control}
-                  name="prize_value"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Valor do Prêmio (R$) *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="500"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-            </div>
+            {watchHasPrize && (
+              <FormField
+                control={form.control}
+                name="prize_value"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor do Prêmio (R$) *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="500"
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
 
-            <FormField
-              control={form.control}
-              name="has_prize"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Competição com prêmio</FormLabel>
-                    <FormDescription>
-                      Habilite para definir um valor de prêmio
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+          <FormField
+            control={form.control}
+            name="has_prize"
+            render={({ field }) => (
+              <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <FormLabel>Competição com prêmio</FormLabel>
+                  <FormDescription>
+                    Habilite para definir um valor de prêmio
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked);
+                      if (!checked) {
+                        form.setValue("prize_value", null);
+                        form.clearErrors("prize_value");
+                      }
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
