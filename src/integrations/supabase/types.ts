@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      bills_instances: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string
+          fixed_bill_id: string
+          id: string
+          is_paid: boolean
+          month_year: string
+          paid_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date: string
+          fixed_bill_id: string
+          id?: string
+          is_paid?: boolean
+          month_year: string
+          paid_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string
+          fixed_bill_id?: string
+          id?: string
+          is_paid?: boolean
+          month_year?: string
+          paid_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bills_instances_fixed_bill_id_fkey"
+            columns: ["fixed_bill_id"]
+            isOneToOne: false
+            referencedRelation: "fixed_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competition_members: {
         Row: {
           competition_id: string
@@ -701,6 +748,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fixed_bills: {
+        Row: {
+          amount: number
+          created_at: string
+          due_day: number | null
+          id: string
+          is_active: boolean
+          name: string
+          recurrence: string
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_day?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          recurrence?: string
+          start_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_day?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          recurrence?: string
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       fuel_logs: {
         Row: {
