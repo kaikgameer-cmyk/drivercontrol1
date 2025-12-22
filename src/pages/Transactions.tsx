@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, TrendingUp, TrendingDown, Search, Loader2, Trash2, PlusCircle, CreditCard, Pencil, DollarSign, Fuel, AlertTriangle, Gauge, Clock, Car } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Search, Loader2, Trash2, PlusCircle, CreditCard, Pencil, DollarSign, Fuel, AlertTriangle, Gauge, Clock, Car, Zap } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,12 +60,18 @@ export default function Transactions() {
   const [expenseInstallments, setExpenseInstallments] = useState("1");
   const [expenseNotes, setExpenseNotes] = useState("");
 
-  // Fuel-specific fields
-  const [fuelLiters, setFuelLiters] = useState("");
+  // Fuel/Electric-specific fields
+  const [fuelLiters, setFuelLiters] = useState(""); // Also used for kWh in electric
   const [fuelTotalValue, setFuelTotalValue] = useState("");
-  const [fuelStation, setFuelStation] = useState("");
+  const [fuelStation, setFuelStation] = useState(""); // Also used for charging station
   const [fuelOdometerKm, setFuelOdometerKm] = useState("");
   const [fuelType, setFuelType] = useState("");
+
+  // Helper to check if category is fuel or electric (energy categories)
+  const isEnergyCategory = (category: string) => 
+    category === "combustivel" || category === "eletrico";
+  
+  const isElectricCategory = (category: string) => category === "eletrico";
 
   // Edit state for expenses
   const [editingTransaction, setEditingTransaction] = useState<{
@@ -343,7 +349,7 @@ export default function Transactions() {
 
   const handleExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (expenseCategory === "combustivel") {
+    if (isEnergyCategory(expenseCategory)) {
       createFuelExpense.mutate();
     } else {
       createExpense.mutate();
@@ -614,13 +620,13 @@ export default function Transactions() {
                       </div>
                     </div>
 
-                    {expenseCategory === "combustivel" ? (
+                    {isEnergyCategory(expenseCategory) ? (
                       <>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Posto (opcional)</Label>
+                            <Label>{isElectricCategory(expenseCategory) ? "Estação (opcional)" : "Posto (opcional)"}</Label>
                             <Input 
-                              placeholder="Ex: Shell" 
+                              placeholder={isElectricCategory(expenseCategory) ? "Ex: Eletroposto Enel" : "Ex: Shell"} 
                               value={fuelStation} 
                               onChange={(e) => setFuelStation(e.target.value)} 
                             />
@@ -628,7 +634,7 @@ export default function Transactions() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Litros *</Label>
+                            <Label>{isElectricCategory(expenseCategory) ? "kWh *" : "Litros *"}</Label>
                             <Input 
                               type="number" 
                               step="0.01" 
@@ -650,18 +656,33 @@ export default function Transactions() {
                             />
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Tipo de combustível *</Label>
-                          <Select value={fuelType} onValueChange={setFuelType} required>
-                            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="gasolina">Gasolina</SelectItem>
-                              <SelectItem value="etanol">Etanol</SelectItem>
-                              <SelectItem value="diesel">Diesel</SelectItem>
-                              <SelectItem value="gnv">GNV</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {isElectricCategory(expenseCategory) ? (
+                          <div className="space-y-2">
+                            <Label>Tipo de carregamento *</Label>
+                            <Select value={fuelType} onValueChange={setFuelType} required>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ac_lento">AC Lento (3-7 kW)</SelectItem>
+                                <SelectItem value="ac_semi">AC Semi-Rápido (7-22 kW)</SelectItem>
+                                <SelectItem value="dc_rapido">DC Rápido (50+ kW)</SelectItem>
+                                <SelectItem value="residencial">Residencial</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label>Tipo de combustível *</Label>
+                            <Select value={fuelType} onValueChange={setFuelType} required>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="gasolina">Gasolina</SelectItem>
+                                <SelectItem value="etanol">Etanol</SelectItem>
+                                <SelectItem value="diesel">Diesel</SelectItem>
+                                <SelectItem value="gnv">GNV</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <Label>Quilometragem atual</Label>
                           <Input 
@@ -719,7 +740,7 @@ export default function Transactions() {
                           if (!selectedCard) return null;
                           
                           const available = Number(selectedCard.available) || 0;
-                          const expenseValue = expenseCategory === "combustivel" 
+                          const expenseValue = isEnergyCategory(expenseCategory) 
                             ? parseFloat(fuelTotalValue) || 0
                             : parseFloat(expenseAmount) || 0;
                           
@@ -754,7 +775,7 @@ export default function Transactions() {
                           return null;
                         })()}
                         
-                        {expenseCategory !== "combustivel" && (
+                        {!isEnergyCategory(expenseCategory) && (
                           <div className="space-y-2">
                             <Label>Parcelamento</Label>
                             <Select value={expenseInstallments} onValueChange={setExpenseInstallments}>
@@ -785,7 +806,7 @@ export default function Transactions() {
                     )}
                     <div className="space-y-2">
                       <Label>Observação (opcional)</Label>
-                      <Input placeholder={expenseCategory === "combustivel" ? "Ex: Tanque cheio" : "Ex: Troca de óleo"} value={expenseNotes} onChange={(e) => setExpenseNotes(e.target.value)} />
+                      <Input placeholder={isElectricCategory(expenseCategory) ? "Ex: Carga completa" : isEnergyCategory(expenseCategory) ? "Ex: Tanque cheio" : "Ex: Troca de óleo"} value={expenseNotes} onChange={(e) => setExpenseNotes(e.target.value)} />
                     </div>
                     {(() => {
                       const isPending = createExpense.isPending || createFuelExpense.isPending;
@@ -793,7 +814,7 @@ export default function Transactions() {
                         ? creditCards.find(c => c.id === expenseCreditCardId)
                         : null;
                       const available = selectedCard ? Number(selectedCard.available) || 0 : Infinity;
-                      const expenseValue = expenseCategory === "combustivel" 
+                      const expenseValue = isEnergyCategory(expenseCategory) 
                         ? parseFloat(fuelTotalValue) || 0
                         : parseFloat(expenseAmount) || 0;
                       const exceedsLimit = selectedCard && expenseValue > available;
@@ -807,10 +828,14 @@ export default function Transactions() {
                         >
                           {isPending ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : expenseCategory === "combustivel" ? (
+                          ) : isEnergyCategory(expenseCategory) ? (
                             <>
-                              <Fuel className="w-4 h-4 mr-2" />
-                              Salvar Abastecimento
+                              {isElectricCategory(expenseCategory) ? (
+                                <Zap className="w-4 h-4 mr-2" />
+                              ) : (
+                                <Fuel className="w-4 h-4 mr-2" />
+                              )}
+                              {isElectricCategory(expenseCategory) ? "Salvar Recarga" : "Salvar Abastecimento"}
                             </>
                           ) : (
                             "Salvar Despesa"
