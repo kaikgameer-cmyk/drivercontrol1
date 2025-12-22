@@ -1372,11 +1372,20 @@ export default function Transactions() {
                           </td>
                           <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-center hidden sm:table-cell">
                             <div className="flex flex-col items-center">
-                              <span className="capitalize">
-                                {transaction.transactionType === "receita" 
-                                  ? "Receita do Dia" 
-                                  : (transaction.category || "—")}
-                              </span>
+                              {transaction.transactionType === "receita" ? (
+                                <span className="flex items-center gap-1.5">
+                                  <TrendingUp className="w-4 h-4 text-success" />
+                                  <span>Receita do Dia</span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1.5">
+                                  {(() => {
+                                    const cat = enabledCategories.find(c => c.key === transaction.category);
+                                    return <CategoryIcon iconName={cat?.icon} color={cat?.color} size={16} />;
+                                  })()}
+                                  <span className="capitalize">{transaction.category || "—"}</span>
+                                </span>
+                              )}
                               {transaction.transactionType === "despesa" && (transaction as any).fuel_logs && (
                                 <span className="text-xs text-primary flex items-center gap-1 mt-0.5">
                                   <Fuel className="w-3 h-3" />
