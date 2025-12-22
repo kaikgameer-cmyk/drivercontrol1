@@ -10,10 +10,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Clock, MapPin, Car } from "lucide-react";
+import { Loader2, Clock, MapPin, Car, CalendarIcon } from "lucide-react";
 import { useIncomeDay, IncomeDay, IncomeDayItem } from "@/hooks/useIncomeDay";
 import { usePlatforms, Platform } from "@/hooks/usePlatforms";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface IncomeDayFormProps {
   open: boolean;
@@ -30,11 +38,15 @@ interface PlatformAmount {
 export function IncomeDayForm({
   open,
   onOpenChange,
-  selectedDate,
+  selectedDate: initialDate,
   existingData,
 }: IncomeDayFormProps) {
   const { saveIncomeDay } = useIncomeDay();
   const { enabledPlatforms, loadingPlatforms } = usePlatforms();
+
+  // Date state - default to initialDate or existing data date
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Form state
   const [kmRodados, setKmRodados] = useState("");
@@ -77,6 +89,9 @@ export function IncomeDayForm({
   useEffect(() => {
     if (open) {
       if (existingData) {
+        // Parse existing date from string to Date
+        const [year, month, day] = existingData.date.split('-').map(Number);
+        setSelectedDate(new Date(year, month - 1, day, 12, 0, 0));
         setKmRodados(existingData.km_rodados?.toString() || "");
         setHorasTrabalhadas(formatMinutesToTime(existingData.hours_minutes || 0));
         // Get trips from items (legacy) or use 0
@@ -91,6 +106,7 @@ export function IncomeDayForm({
         });
         setPlatformAmounts(amounts);
       } else {
+        setSelectedDate(initialDate);
         setKmRodados("");
         setHorasTrabalhadas("");
         setTrips("");
@@ -98,7 +114,7 @@ export function IncomeDayForm({
         setPlatformAmounts({});
       }
     }
-  }, [open, existingData]);
+  }, [open, existingData, initialDate]);
 
   const formatMinutesToTime = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
@@ -198,12 +214,52 @@ export function IncomeDayForm({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {existingData ? "Editar" : "Nova"} Receita do Dia —{" "}
-            {format(selectedDate, "dd/MM/yyyy")}
+            {existingData ? "Editar" : "Nova"} Receita do Dia
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Date picker */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <CalendarIcon className="w-3.5 h-3.5" />
+              Data *
+            </Label>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? (
+                    format(selectedDate, "dd/MM/yyyy", { locale: ptBR })
+                  ) : (
+                    <span>Selecione a data</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      setSelectedDate(date);
+                    }
+                    setDatePickerOpen(false);
+                  }}
+                  locale={ptBR}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           {/* Day-level fields */}
           <Card>
             <CardContent className="p-4 space-y-4">
