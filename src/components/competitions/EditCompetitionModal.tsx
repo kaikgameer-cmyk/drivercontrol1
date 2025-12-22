@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,8 @@ const editCompetitionSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100),
   description: z.string().max(500).optional(),
   goal_value: z.coerce.number().positive("Meta deve ser maior que zero"),
-  prize_value: z.coerce.number().min(0, "Prêmio não pode ser negativo"),
+  has_prize: z.boolean().default(true),
+  prize_value: z.coerce.number().min(0, "Prêmio não pode ser negativo").optional(),
   start_date: z.string().min(1, "Data inicial é obrigatória"),
   end_date: z.string().min(1, "Data final é obrigatória"),
   max_members: z.coerce.number().int().min(2).optional().nullable(),
@@ -42,6 +44,9 @@ const editCompetitionSchema = z.object({
 }, {
   message: "Data final não pode ser anterior à data inicial",
   path: ["end_date"],
+}).refine((data) => !data.has_prize || (data.prize_value && data.prize_value > 0), {
+  message: "Prêmio deve ser maior que zero",
+  path: ["prize_value"],
 });
 
 type EditCompetitionFormValues = z.infer<typeof editCompetitionSchema>;
@@ -74,12 +79,15 @@ export function EditCompetitionModal({
       name: competition.name,
       description: competition.description || "",
       goal_value: competition.goal_value,
+      has_prize: competition.prize_value > 0,
       prize_value: competition.prize_value,
       start_date: competition.start_date,
       end_date: competition.end_date,
       max_members: competition.max_members || null,
     },
   });
+
+  const watchHasPrize = form.watch("has_prize");
 
   // Reset form when modal opens or competition changes
   useEffect(() => {
@@ -88,6 +96,7 @@ export function EditCompetitionModal({
         name: competition.name,
         description: competition.description || "",
         goal_value: competition.goal_value,
+        has_prize: competition.prize_value > 0,
         prize_value: competition.prize_value,
         start_date: competition.start_date,
         end_date: competition.end_date,
@@ -100,6 +109,7 @@ export function EditCompetitionModal({
     await updateMutation.mutateAsync({
       competition_id: competition.id,
       ...values,
+      prize_value: values.has_prize ? (values.prize_value || 0) : 0,
       max_members: values.max_members || undefined,
     });
     onOpenChange(false);
@@ -181,26 +191,46 @@ export function EditCompetitionModal({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="prize_value"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prêmio (R$)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="100"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {watchHasPrize && (
+                <FormField
+                  control={form.control}
+                  name="prize_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prêmio (R$)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="100"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
+
+            <FormField
+              control={form.control}
+              name="has_prize"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Competição com prêmio</FormLabel>
+                    <FormDescription>
+                      Habilite para definir um valor de prêmio
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
