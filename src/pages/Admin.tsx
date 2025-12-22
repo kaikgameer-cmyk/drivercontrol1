@@ -458,9 +458,9 @@ export default function AdminPage() {
 
   // Resend password link mutation
   const resendPasswordLinkMutation = useMutation({
-    mutationFn: async ({ email, skipSubscriptionCheck }: { email: string; skipSubscriptionCheck?: boolean }) => {
+    mutationFn: async ({ userId, skipSubscriptionCheck }: { userId: string; skipSubscriptionCheck?: boolean }) => {
       const response = await supabase.functions.invoke("resend-password-link", {
-        body: { email, skipSubscriptionCheck },
+        body: { userId, skipSubscriptionCheck },
       });
 
       if (response.error) {
@@ -931,22 +931,11 @@ export default function AdminPage() {
                               <Button 
                                 variant="ghost" 
                                 size="icon"
-                                onClick={async () => {
-                                  // Get user email from auth
-                                  const { data } = await supabase.auth.admin.listUsers();
-                                  const authUser = data?.users?.find((u: any) => u.id === user.user_id);
-                                  if (authUser?.email) {
-                                    resendPasswordLinkMutation.mutate({ 
-                                      email: authUser.email, 
-                                      skipSubscriptionCheck: true 
-                                    });
-                                  } else {
-                                    toast({ 
-                                      title: "Email não encontrado", 
-                                      description: "Não foi possível encontrar o email do usuário.",
-                                      variant: "destructive" 
-                                    });
-                                  }
+                                onClick={() => {
+                                  resendPasswordLinkMutation.mutate({ 
+                                    userId: user.user_id, 
+                                    skipSubscriptionCheck: true 
+                                  });
                                 }}
                                 disabled={resendPasswordLinkMutation.isPending}
                                 title="Reenviar link de senha"
