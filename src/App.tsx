@@ -31,6 +31,7 @@ import CompetitionDetails from "./pages/CompetitionDetails";
 import JoinCompetition from "./pages/JoinCompetition";
 import Ranking from "./pages/Ranking";
 import TestCompetitionMessages from "./pages/TestCompetitionMessages";
+import PlanComparisonPage from "./pages/PlanComparison";
 
 const App = () => {
   const [queryClient] = useState(() => new QueryClient());
@@ -46,6 +47,7 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/definir-senha" element={<DefinirSenha />} />
+          <Route path="/comparar-planos" element={<PlanComparisonPage />} />
           <Route
             path="/dashboard"
             element={
