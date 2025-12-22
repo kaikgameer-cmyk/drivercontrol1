@@ -36,7 +36,18 @@ const editCompetitionSchema = z
       .optional(),
     goal_value: z.coerce.number().positive("Meta deve ser maior que zero"),
     has_prize: z.boolean().default(false),
-    prize_value: z.coerce.number().min(0, "Prêmio não pode ser negativo").nullable().optional(),
+    prize_value: z
+      .preprocess(
+        (val) => {
+          if (val === "" || val === undefined || val === null) return null;
+          const num = Number(val);
+          return Number.isFinite(num) ? num : null;
+        },
+        z
+          .number()
+          .nonnegative("Prêmio não pode ser negativo")
+          .nullable()
+      ),
     start_date: z.string().min(1, "Data inicial é obrigatória"),
     end_date: z.string().min(1, "Data final é obrigatória"),
     max_members: z.coerce.number().int().min(2).optional().nullable(),
@@ -50,9 +61,16 @@ const editCompetitionSchema = z
     message: "Data final não pode ser anterior à data inicial",
     path: ["end_date"],
   })
-  .refine((data) => !data.has_prize || (data.prize_value ?? 0) > 0, {
-    message: "Prêmio deve ser maior que zero",
-    path: ["prize_value"],
+  .superRefine((data, ctx) => {
+    if (data.has_prize) {
+      if (data.prize_value === null || data.prize_value === undefined || data.prize_value <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["prize_value"],
+          message: "Valor do prêmio é obrigatório e deve ser maior que zero",
+        });
+      }
+    }
   });
 
 type EditCompetitionFormValues = z.infer<typeof editCompetitionSchema>;
@@ -66,6 +84,7 @@ interface EditCompetitionModalProps {
     description?: string | null;
     goal_value: number;
     prize_value: number;
+    has_prize?: boolean | null;
     start_date: string;
     end_date: string;
     max_members?: number | null;
@@ -79,14 +98,16 @@ export function EditCompetitionModal({
 }: EditCompetitionModalProps) {
   const updateMutation = useUpdateCompetition();
 
+  const initialHasPrize = competition.has_prize ?? competition.prize_value > 0;
+
   const form = useForm<EditCompetitionFormValues>({
     resolver: zodResolver(editCompetitionSchema),
     defaultValues: {
       name: competition.name,
       description: competition.description || "",
       goal_value: competition.goal_value,
-      has_prize: competition.prize_value > 0,
-      prize_value: competition.prize_value > 0 ? competition.prize_value : null,
+      has_prize: initialHasPrize,
+      prize_value: initialHasPrize ? competition.prize_value : null,
       start_date: competition.start_date,
       end_date: competition.end_date,
       max_members: competition.max_members || null,
@@ -98,12 +119,13 @@ export function EditCompetitionModal({
   // Reset form when modal opens or competition changes
   useEffect(() => {
     if (open) {
+      const currentHasPrize = competition.has_prize ?? competition.prize_value > 0;
       form.reset({
         name: competition.name,
         description: competition.description || "",
         goal_value: competition.goal_value,
-        has_prize: competition.prize_value > 0,
-        prize_value: competition.prize_value > 0 ? competition.prize_value : null,
+        has_prize: currentHasPrize,
+        prize_value: currentHasPrize ? competition.prize_value : null,
         start_date: competition.start_date,
         end_date: competition.end_date,
         max_members: competition.max_members || null,
@@ -114,8 +136,13 @@ export function EditCompetitionModal({
   const onSubmit = async (values: EditCompetitionFormValues) => {
     await updateMutation.mutateAsync({
       competition_id: competition.id,
-      ...values,
-      prize_value: values.has_prize ? (values.prize_value || 0) : 0,
+      name: values.name,
+      description: values.description,
+      goal_value: values.goal_value,
+      has_prize: values.has_prize,
+      prize_value: values.has_prize ? values.prize_value ?? null : null,
+      start_date: values.start_date,
+      end_date: values.end_date,
       max_members: values.max_members || undefined,
     });
     onOpenChange(false);
@@ -219,6 +246,8 @@ export function EditCompetitionModal({
                           min="0"
                           placeholder="100"
                           {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.value)}
                         />
                       </FormControl>
                       <FormMessage />
@@ -240,7 +269,16 @@ export function EditCompetitionModal({
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (!checked) {
+                          form.setValue("prize_value", null);
+                          form.clearErrors("prize_value");
+                        }
+                      }}
+                    />
                   </FormControl>
                 </FormItem>
               )}

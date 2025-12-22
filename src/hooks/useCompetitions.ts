@@ -8,9 +8,10 @@ export interface Competition {
   code: string;
   name: string;
   description: string | null;
-  goal_type: 'income_goal';
+  goal_type: "income_goal";
   goal_value: number;
-  prize_value: number;
+  prize_value: number | null;
+  has_prize?: boolean | null;
   start_date: string;
   end_date: string;
   max_members: number | null;
@@ -335,7 +336,8 @@ export function useCreateCompetition() {
       max_members?: number;
       allow_teams?: boolean;
       team_size?: number;
-      prize_value: number;
+      has_prize: boolean;
+      prize_value: number | null;
       host_participates?: boolean;
     }) => {
       const { data, error } = await supabase.rpc("create_competition", {
@@ -349,12 +351,25 @@ export function useCreateCompetition() {
         p_max_members: params.max_members || null,
         p_allow_teams: params.allow_teams || false,
         p_team_size: params.team_size || null,
-        p_prize_value: params.prize_value,
+        p_prize_value: params.prize_value ?? null,
         p_host_participates: params.host_participates ?? true,
       });
 
       if (error) throw error;
-      return data as { competition_id: string; code: string };
+      const created = data as { competition_id: string; code: string };
+
+      // Garantir consistência de has_prize/prize_value no banco
+      const { error: updateError } = await supabase
+        .from("competitions")
+        .update({
+          has_prize: params.has_prize,
+          prize_value: params.has_prize ? params.prize_value : null,
+        })
+        .eq("id", created.competition_id);
+
+      if (updateError) throw updateError;
+
+      return created;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["competitions-for-tabs"] });
@@ -810,23 +825,40 @@ export function useUpdateCompetition() {
       name?: string;
       description?: string;
       goal_value?: number;
-      prize_value?: number;
+      has_prize?: boolean;
+      prize_value?: number | null;
       start_date?: string;
       end_date?: string;
       max_members?: number;
     }) => {
+      const { competition_id, has_prize, ...rest } = params;
+
       const { data, error } = await supabase.rpc("update_competition_as_host", {
-        p_competition_id: params.competition_id,
-        p_name: params.name || null,
-        p_description: params.description || null,
-        p_goal_value: params.goal_value || null,
-        p_prize_value: params.prize_value ?? null,
-        p_start_date: params.start_date || null,
-        p_end_date: params.end_date || null,
-        p_max_members: params.max_members || null,
+        p_competition_id: competition_id,
+        p_name: rest.name || null,
+        p_description: rest.description || null,
+        p_goal_value: rest.goal_value || null,
+        p_prize_value: rest.prize_value ?? null,
+        p_start_date: rest.start_date || null,
+        p_end_date: rest.end_date || null,
+        p_max_members: rest.max_members || null,
       });
 
       if (error) throw error;
+
+      // Garantir consistência de has_prize/prize_value no banco
+      if (has_prize !== undefined) {
+        const { error: updateError } = await supabase
+          .from("competitions")
+          .update({
+            has_prize,
+            prize_value: has_prize ? rest.prize_value ?? null : null,
+          })
+          .eq("id", competition_id);
+
+        if (updateError) throw updateError;
+      }
+
       return data as {
         id: string;
         code: string;
