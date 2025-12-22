@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.resend-password-link]
 verify_jwt = false
+
+[functions.upload-branding-logo]
+verify_jwt = false
