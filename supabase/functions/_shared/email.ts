@@ -30,7 +30,7 @@ export interface EmailConfig {
 const PROD_APP_URL = "https://newgestao.app";
 
 // Email logo URL - using GitHub raw URL for guaranteed availability
-const EMAIL_LOGO_URL = "https://github.com/kaikgivaldodev/img/blob/main/NG.png?raw=true";
+const EMAIL_LOGO_URL = "https://raw.githubusercontent.com/kaikgivaldodev/img/main/NG.png";
 
 /**
  * Retorna a URL absoluta da logo para emails
