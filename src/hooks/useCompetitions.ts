@@ -107,7 +107,6 @@ export interface CompetitionForTabs {
   computed_status: CompetitionTabStatus;
   computed_label: string;
   meta_reached: boolean;
-  user_rank: number | null;
 }
 
 export function useCompetitionsForTabs() {

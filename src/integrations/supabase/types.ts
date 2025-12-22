@@ -1719,7 +1719,6 @@ export type Database = {
           start_date: string
           user_is_host: boolean
           user_is_member: boolean
-          user_rank: number
         }[]
       }
       get_listed_competitions: {
