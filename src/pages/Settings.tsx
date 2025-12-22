@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { User, Settings as SettingsIcon, Calendar, DollarSign, Loader2, LogOut, Phone, MapPin, Mail, Camera, Car, Zap, Fuel, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ import { PlatformSettings } from "@/components/settings/PlatformSettings";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { CompetitionHistory } from "@/components/settings/CompetitionHistory";
 import { ExpenseCategorySettings } from "@/components/settings/ExpenseCategorySettings";
+import { useVehicleType } from "@/hooks/useVehicleType";
 import { z } from "zod";
 
 // Validation schema for profile
@@ -49,8 +50,11 @@ export default function SettingsPage() {
   const [city, setCity] = useState("");
   const [startWeekDay, setStartWeekDay] = useState("monday");
   const [currency, setCurrency] = useState("BRL");
-  const [vehicleType, setVehicleType] = useState<"electric" | "fuel">("fuel");
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Use the shared hook for vehicle type
+  const { vehicleType, updateVehicleType, isLoading: loadingVehicleType } = useVehicleType();
+  const [isUpdatingVehicleType, setIsUpdatingVehicleType] = useState(false);
 
   // Fetch profile
   const { data: profile, isLoading: loadingProfile } = useQuery({
@@ -91,17 +95,15 @@ export default function SettingsPage() {
     enabled: !!user,
   });
 
-  // Update form when profile loads
+  // Update form when profile loads (but not vehicle type - that comes from hook)
   useEffect(() => {
     if (profile) {
-      // Handle both new and legacy fields
       setFirstName(profile.first_name || "");
       setLastName(profile.last_name || "");
       setWhatsapp(profile.whatsapp || "");
       setCity(profile.city || "");
       setStartWeekDay(profile.start_week_day || "monday");
       setCurrency(profile.currency || "BRL");
-      setVehicleType((profile.vehicle_type as "electric" | "fuel") || "fuel");
     }
   }, [profile]);
 
@@ -154,7 +156,6 @@ export default function SettingsPage() {
           name: `${firstName.trim()} ${lastName.trim()}`.trim(), // Keep legacy field updated
           start_week_day: startWeekDay,
           currency,
-          vehicle_type: vehicleType,
         })
         .eq("user_id", user.id);
 
@@ -375,72 +376,78 @@ export default function SettingsPage() {
                 Define quais módulos e categorias aparecem no sistema
               </p>
 
-              <RadioGroup
-                value={vehicleType}
-                onValueChange={async (value) => {
-                  const newType = value as "electric" | "fuel";
-                  const previousType = vehicleType;
-                  setVehicleType(newType);
-                  
-                  try {
-                    if (!user) throw new Error("Não autenticado");
-                    const { error } = await supabase
-                      .from("profiles")
-                      .update({ vehicle_type: newType })
-                      .eq("user_id", user.id);
-                    
-                    if (error) throw error;
-                    
-                    queryClient.invalidateQueries({ queryKey: ["profile"] });
-                    queryClient.invalidateQueries({ queryKey: ["vehicle-type"] });
-                    queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-                    
-                    toast({
-                      title: "Preferência atualizada",
-                      description: newType === "electric" 
-                        ? "Modo Elétrico ativado. A categoria Combustível será ocultada." 
-                        : "Modo Combustível ativado. A categoria Elétrico será ocultada.",
-                    });
-                  } catch (error) {
-                    setVehicleType(previousType);
-                    toast({
-                      title: "Erro ao atualizar",
-                      description: "Não foi possível salvar a preferência.",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-                className="grid grid-cols-2 gap-3"
-              >
-                <div className="relative">
-                  <RadioGroupItem
-                    value="fuel"
-                    id="settings-vehicle-fuel"
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor="settings-vehicle-fuel"
-                    className="flex flex-col items-center justify-center rounded-lg border-2 border-border bg-card p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 cursor-pointer transition-colors"
-                  >
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (vehicleType === "fuel" || isUpdatingVehicleType) return;
+                    setIsUpdatingVehicleType(true);
+                    try {
+                      await updateVehicleType.mutateAsync("fuel");
+                      toast({
+                        title: "Preferência atualizada",
+                        description: "Modo Combustível ativado. A categoria Elétrico será ocultada.",
+                      });
+                    } catch {
+                      toast({
+                        title: "Erro ao atualizar",
+                        description: "Não foi possível salvar a preferência.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsUpdatingVehicleType(false);
+                    }
+                  }}
+                  disabled={isUpdatingVehicleType || loadingVehicleType}
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 transition-colors ${
+                    vehicleType === "fuel"
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card hover:bg-accent hover:text-accent-foreground"
+                  } ${isUpdatingVehicleType ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
+                  {isUpdatingVehicleType ? (
+                    <Loader2 className="w-6 h-6 mb-1 animate-spin text-muted-foreground" />
+                  ) : (
                     <Fuel className="w-6 h-6 mb-1 text-orange-500" />
-                    <span className="font-semibold text-sm">Combustível</span>
-                  </Label>
-                </div>
-                <div className="relative">
-                  <RadioGroupItem
-                    value="electric"
-                    id="settings-vehicle-electric"
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor="settings-vehicle-electric"
-                    className="flex flex-col items-center justify-center rounded-lg border-2 border-border bg-card p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 cursor-pointer transition-colors"
-                  >
+                  )}
+                  <span className="font-semibold text-sm">Combustível</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (vehicleType === "electric" || isUpdatingVehicleType) return;
+                    setIsUpdatingVehicleType(true);
+                    try {
+                      await updateVehicleType.mutateAsync("electric");
+                      toast({
+                        title: "Preferência atualizada",
+                        description: "Modo Elétrico ativado. A categoria Combustível será ocultada.",
+                      });
+                    } catch {
+                      toast({
+                        title: "Erro ao atualizar",
+                        description: "Não foi possível salvar a preferência.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsUpdatingVehicleType(false);
+                    }
+                  }}
+                  disabled={isUpdatingVehicleType || loadingVehicleType}
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 transition-colors ${
+                    vehicleType === "electric"
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card hover:bg-accent hover:text-accent-foreground"
+                  } ${isUpdatingVehicleType ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
+                  {isUpdatingVehicleType ? (
+                    <Loader2 className="w-6 h-6 mb-1 animate-spin text-muted-foreground" />
+                  ) : (
                     <Zap className="w-6 h-6 mb-1 text-emerald-500" />
-                    <span className="font-semibold text-sm">Elétrico</span>
-                  </Label>
-                </div>
-              </RadioGroup>
+                  )}
+                  <span className="font-semibold text-sm">Elétrico</span>
+                </button>
+              </div>
 
               <Alert variant="default" className="bg-muted/50 border-muted-foreground/20">
                 <AlertTriangle className="h-4 w-4" />
