@@ -198,27 +198,19 @@ export default function SubscriptionPage() {
       {/* Help Section */}
       <Card className="bg-muted/50">
         <CardContent className="pt-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <AlertTriangle className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold mb-1">Precisa de ajuda?</h3>
-                <p className="text-sm text-muted-foreground">
-                  Se você tiver problemas com sua assinatura ou pagamentos, entre em contato conosco pelo email{" "}
-                  <a href="mailto:newgestao.contato@outlook.com" className="text-primary hover:underline">
-                    newgestao.contato@outlook.com
-                  </a>
-                </p>
-              </div>
+          <div className="flex items-start gap-4">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <AlertTriangle className="w-5 h-5 text-primary" />
             </div>
-            <a
-              href="/comparar-planos"
-              className="text-sm font-medium text-primary hover:underline mt-2 md:mt-0"
-            >
-              Comparar planos em detalhe
-            </a>
+            <div>
+              <h3 className="font-semibold mb-1">Precisa de ajuda?</h3>
+              <p className="text-sm text-muted-foreground">
+                Se você tiver problemas com sua assinatura ou pagamentos, entre em contato conosco pelo email{" "}
+                <a href="mailto:newgestao.contato@outlook.com" className="text-primary hover:underline">
+                  newgestao.contato@outlook.com
+                </a>
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
