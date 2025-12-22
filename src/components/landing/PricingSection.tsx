@@ -1,6 +1,7 @@
 import { Check, Zap, Sparkles, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLANS_LIST } from "@/config/plans";
+import { Link } from "react-router-dom";
 
 export function PricingSection() {
   const handleSelectPlan = (checkoutUrl: string) => {
@@ -71,27 +72,19 @@ export function PricingSection() {
 
                 <div className="h-6" />
 
-                {/* Features */}
+                {/* Features (resumo) */}
                 <ul className="space-y-3 mb-6 flex-1">
                   <li className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Check className="w-4 h-4 text-success flex-shrink-0" />
-                    Dashboard completo
+                    Dashboard completo e relatórios de resultados
                   </li>
                   <li className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Check className="w-4 h-4 text-success flex-shrink-0" />
-                    Controle de combustível
+                    Controle de combustível, despesas e manutenções
                   </li>
                   <li className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Check className="w-4 h-4 text-success flex-shrink-0" />
-                    Gestão de despesas
-                  </li>
-                  <li className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <Check className="w-4 h-4 text-success flex-shrink-0" />
-                    Metas e competições
-                  </li>
-                  <li className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <Check className="w-4 h-4 text-success flex-shrink-0" />
-                    Atualizações inclusas
+                    Metas, competições e ranking entre motoristas
                   </li>
                 </ul>
 
@@ -116,9 +109,17 @@ export function PricingSection() {
           })}
         </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-8">
-          Pagamento seguro via Kiwify. Cancele quando quiser.
-        </p>
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <p className="text-center text-sm text-muted-foreground">
+            Pagamento seguro via Kiwify. Cancele quando quiser.
+          </p>
+          <Link
+            to="/comparar-planos"
+            className="text-xs text-primary hover:underline"
+          >
+            Comparar planos em detalhe
+          </Link>
+        </div>
       </div>
     </section>
   );
