@@ -10,6 +10,7 @@ import { MaintenanceDeleteDialog } from "@/components/maintenance/MaintenanceDel
 import { MaintenanceStatusBadge } from "@/components/maintenance/MaintenanceStatusBadge";
 import { MaintenanceSummaryCard } from "@/components/maintenance/MaintenanceSummaryCard";
 import { MaintenanceRenewModal } from "@/components/maintenance/MaintenanceRenewModal";
+import { MaintenanceHistorySection } from "@/components/maintenance/MaintenanceHistorySection";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -32,7 +33,7 @@ export default function Maintenance() {
     deleteMaintenance,
   } = useMaintenance();
 
-  const { completedCount, createHistoryRecord } = useMaintenanceHistory();
+  const { historyRecords, isLoading: historyLoading, completedCount, createHistoryRecord } = useMaintenanceHistory();
 
   const sortedRecords = getSortedRecords();
   const counts = getCounts();
@@ -322,6 +323,13 @@ export default function Maintenance() {
         record={renewRecord}
         suggestedKm={latestOdometer}
         isPending={createHistoryRecord.isPending}
+      />
+
+      {/* History Section */}
+      <MaintenanceHistorySection
+        historyRecords={historyRecords}
+        maintenanceRecords={sortedRecords}
+        isLoading={historyLoading}
       />
     </div>
   );
