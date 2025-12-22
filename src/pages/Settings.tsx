@@ -21,7 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { PlatformSettings } from "@/components/settings/PlatformSettings";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { CompetitionHistory } from "@/components/settings/CompetitionHistory";
-import { FixedBillsSettings } from "@/components/settings/FixedBillsSettings";
+import { ExpenseCategorySettings } from "@/components/settings/ExpenseCategorySettings";
 import { z } from "zod";
 
 // Validation schema for profile
@@ -365,8 +365,8 @@ export default function SettingsPage() {
       {/* Platform Settings */}
       <PlatformSettings />
 
-      {/* Fixed Bills Settings */}
-      <FixedBillsSettings />
+      {/* Expense Category Settings */}
+      <ExpenseCategorySettings />
 
       {/* Competition History */}
       <CompetitionHistory />

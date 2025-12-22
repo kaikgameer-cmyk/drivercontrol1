@@ -32,6 +32,7 @@ import { parseLocalDate } from "@/lib/dateUtils";
 import { useMaintenance } from "@/hooks/useMaintenance";
 import { IncomeDayForm } from "@/components/income/IncomeDayForm";
 import { useIncomeDay, IncomeDay } from "@/hooks/useIncomeDay";
+import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 
 export default function Transactions() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -89,6 +90,7 @@ export default function Transactions() {
   const queryClient = useQueryClient();
   const { checkMaintenanceAlerts, maintenanceRecords } = useMaintenance();
   const { deleteIncomeDay } = useIncomeDay();
+  const { enabledCategories, loadingCategories } = useExpenseCategories();
 
   // Fetch income_days (source of truth for revenues)
   const { data: allIncomeDays = [], isLoading: loadingIncomeDays } = useQuery({
@@ -596,14 +598,17 @@ export default function Transactions() {
                         <Select value={expenseCategory} onValueChange={setExpenseCategory} required>
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="combustivel">Combustível</SelectItem>
-                            <SelectItem value="manutencao">Manutenção</SelectItem>
-                            <SelectItem value="lavagem">Lavagem</SelectItem>
-                            <SelectItem value="pedagio">Pedágio</SelectItem>
-                            <SelectItem value="estacionamento">Estacionamento</SelectItem>
-                            <SelectItem value="alimentacao">Alimentação</SelectItem>
-                            <SelectItem value="cartao">Cartão de Crédito</SelectItem>
-                            <SelectItem value="outro">Outro</SelectItem>
+                            {loadingCategories ? (
+                              <SelectItem value="" disabled>Carregando...</SelectItem>
+                            ) : enabledCategories.length === 0 ? (
+                              <SelectItem value="" disabled>Nenhuma categoria habilitada</SelectItem>
+                            ) : (
+                              enabledCategories.map((cat) => (
+                                <SelectItem key={cat.key} value={cat.key}>
+                                  {cat.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
