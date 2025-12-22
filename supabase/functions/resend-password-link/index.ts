@@ -60,31 +60,51 @@ serve(async (req: Request) => {
   });
 
   try {
-    const { email, skipSubscriptionCheck } = await req.json();
+    const { email, userId, skipSubscriptionCheck } = await req.json();
 
-    if (!email) {
-      console.error("[RESEND-LINK] Missing email");
+    // Must have either email or userId
+    if (!email && !userId) {
+      console.error("[RESEND-LINK] Missing email or userId");
       return new Response(
-        JSON.stringify({ error: "Email é obrigatório" }),
+        JSON.stringify({ error: "Email ou ID do usuário é obrigatório" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    console.log("[RESEND-LINK] Processing request for:", email);
+    console.log("[RESEND-LINK] Processing request - email:", email, "userId:", userId);
 
-    // Find user by email using admin API
-    const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
-    if (usersError) {
-      console.error("[RESEND-LINK] Error listing users:", usersError);
-      throw new Error("Erro ao buscar usuário");
+    let user: any = null;
+    let userEmail: string | null = null;
+
+    if (userId) {
+      // Look up user by ID using admin API
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+      if (userError) {
+        console.error("[RESEND-LINK] Error getting user by ID:", userError);
+        return new Response(
+          JSON.stringify({ error: "Usuário não encontrado" }),
+          { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      user = userData?.user;
+      userEmail = user?.email;
+      console.log("[RESEND-LINK] User found by ID:", user?.id, "email:", userEmail);
+    } else {
+      // Find user by email using admin API
+      const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
+      if (usersError) {
+        console.error("[RESEND-LINK] Error listing users:", usersError);
+        throw new Error("Erro ao buscar usuário");
+      }
+
+      user = usersData?.users?.find(
+        (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+      );
+      userEmail = email;
     }
 
-    const user = usersData?.users?.find(
-      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
-    );
-
     if (!user) {
-      console.log("[RESEND-LINK] User not found:", email);
+      console.log("[RESEND-LINK] User not found");
       // Return success to prevent email enumeration
       return new Response(
         JSON.stringify({ 
@@ -95,7 +115,15 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log("[RESEND-LINK] User found:", user.id);
+    if (!userEmail) {
+      console.error("[RESEND-LINK] User has no email:", user.id);
+      return new Response(
+        JSON.stringify({ error: "Usuário não possui email cadastrado" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("[RESEND-LINK] User found:", user.id, "email:", userEmail);
 
     // Check for active subscription (unless skipped by admin)
     if (!skipSubscriptionCheck) {
@@ -167,12 +195,12 @@ serve(async (req: Request) => {
     // Send email
     const emailHtml = getPasswordResetEmailHtml(userName, passwordUrl);
     await sendAppEmail({
-      to: email,
+      to: userEmail,
       subject: "Acesso ao New Gestão — Definir Senha",
       html: emailHtml,
     });
 
-    console.log("[RESEND-LINK] Email sent successfully to:", email);
+    console.log("[RESEND-LINK] Email sent successfully to:", userEmail);
 
     return new Response(
       JSON.stringify({ 
