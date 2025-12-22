@@ -29,6 +29,9 @@ export interface EmailConfig {
 // CRITICAL: Hard-coded production URL - NEVER use lovable.app
 const PROD_APP_URL = "https://newgestao.app";
 
+// Email logo URL - dedicated path for email compatibility
+const EMAIL_LOGO_URL = `${PROD_APP_URL}/email/logo-ng.png`;
+
 /**
  * Validates a URL does NOT contain lovable.app - blocks broken links
  */
@@ -187,7 +190,32 @@ export function getEmailLayout(content: string, options?: { showLogo?: boolean }
           ${showLogo ? `
           <tr>
             <td align="center" style="padding-bottom: 32px;">
-              <img src="https://newgestao.app/logo-ng.png" alt="New Gestão" width="64" height="64" style="display: block; margin: 0 auto;" />
+              <!--[if mso]>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="64">
+                <tr>
+                  <td style="background-color: ${EMAIL_STYLES.accent}; border-radius: 12px; padding: 12px 16px; text-align: center;">
+                    <span style="font-size: 24px; font-weight: bold; color: ${EMAIL_STYLES.accentDark}; letter-spacing: 2px;">NG</span>
+                  </td>
+                </tr>
+              </table>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <img 
+                src="${EMAIL_LOGO_URL}" 
+                alt="NG" 
+                width="64" 
+                height="64" 
+                style="display: block; margin: 0 auto; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" 
+                onerror="this.style.display='none';this.nextElementSibling.style.display='block';"
+              />
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="display: none; margin: 0 auto;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, ${EMAIL_STYLES.accent}, ${EMAIL_STYLES.accentHover}); border-radius: 12px; padding: 12px 16px; text-align: center;">
+                    <span style="font-size: 24px; font-weight: bold; color: ${EMAIL_STYLES.accentDark}; letter-spacing: 2px;">NG</span>
+                  </td>
+                </tr>
+              </table>
+              <!--<![endif]-->
               <p style="margin: 16px 0 0 0; font-size: 20px; font-weight: 600; color: ${EMAIL_STYLES.textPrimary};">New Gestão</p>
             </td>
           </tr>
