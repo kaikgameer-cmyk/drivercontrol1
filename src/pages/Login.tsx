@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, Fuel, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TrendingUp, Fuel, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,6 +57,12 @@ export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading } = useAuth();
+
+  // Forgot password modal state
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
 
   // Redirect if already logged in
   useEffect(() => {
@@ -130,6 +137,45 @@ export default function Login() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    
+    const emailValidation = z.string().email("Formato de email inválido").safeParse(forgotEmail);
+    if (!emailValidation.success) {
+      setForgotError(emailValidation.error.errors[0].message);
+      return;
+    }
+
+    setForgotLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("resend-password-link", {
+        body: { email: forgotEmail.toLowerCase().trim() },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Erro ao processar solicitação");
+      }
+
+      if (data?.error) {
+        setForgotError(data.error);
+        return;
+      }
+
+      toast({
+        title: "Link enviado!",
+        description: data?.message || "Verifique sua caixa de entrada.",
+      });
+      setForgotPasswordOpen(false);
+      setForgotEmail("");
+    } catch (error: any) {
+      setForgotError(error.message || "Ocorreu um erro inesperado");
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -256,9 +302,17 @@ export default function Login() {
             </Button>
             
             <div className="text-center">
-              <Link to="/reset-password" className="text-sm text-muted-foreground hover:text-primary">
-                Esqueci minha senha
-              </Link>
+              <button 
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setForgotError("");
+                  setForgotPasswordOpen(true);
+                }}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                Esqueci minha senha / Definir senha
+              </button>
             </div>
           </form>
           
@@ -267,6 +321,62 @@ export default function Login() {
           </p>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-primary" />
+              Definir Senha
+            </DialogTitle>
+            <DialogDescription>
+              Digite seu email para receber um link de definição de senha.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email">Email</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                placeholder="seu@email.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className={forgotError ? "border-destructive" : ""}
+                autoFocus
+              />
+              {forgotError && (
+                <p className="text-sm text-destructive">{forgotError}</p>
+              )}
+            </div>
+            
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForgotPasswordOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={forgotLoading || !forgotEmail}
+              >
+                {forgotLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Enviando...
+                  </>
+                ) : (
+                  "Enviar Link"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
