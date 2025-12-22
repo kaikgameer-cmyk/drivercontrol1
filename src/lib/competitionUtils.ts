@@ -1,5 +1,6 @@
 import { parseISO, addDays, isBefore, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { normalizeForComparison } from "@/config/defaults";
 
 // Timezone: America/Sao_Paulo
 // Competition is active until 23:59:59 of end_date in Sao Paulo timezone
@@ -12,6 +13,19 @@ export interface CompetitionStatusInfo {
   status: CompetitionStatus;
   label: string;
   variant: "secondary" | "default" | "outline";
+}
+
+// Allowed platforms for competition revenue calculations
+export const COMPETITION_ALLOWED_PLATFORMS = ["99", "Uber", "InDrive"] as const;
+
+const COMPETITION_ALLOWED_PLATFORMS_NORMALIZED = COMPETITION_ALLOWED_PLATFORMS.map((name) =>
+  normalizeForComparison(name),
+);
+
+export function isCompetitionPlatformAllowed(name: string | null | undefined): boolean {
+  if (!name) return false;
+  const normalized = normalizeForComparison(name);
+  return COMPETITION_ALLOWED_PLATFORMS_NORMALIZED.includes(normalized);
 }
 
 /**
