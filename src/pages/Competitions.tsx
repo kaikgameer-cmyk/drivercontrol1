@@ -194,6 +194,12 @@ export default function Competitions() {
                           <Badge variant={comp.computed_label === "Finalizada" ? "outline" : comp.computed_label === "Aguardando início" ? "secondary" : "default"}>
                             {comp.computed_label}
                           </Badge>
+                          {comp.meta_reached && (
+                            <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Meta atingida
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -376,10 +382,18 @@ export default function Competitions() {
                             )}
                           </div>
                         </div>
-                        <Badge variant="outline" className="ml-auto">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Finalizada
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge variant="outline" className="ml-auto">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Finalizada
+                          </Badge>
+                          {comp.meta_reached && (
+                            <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
+                              <Target className="w-3 h-3 mr-1" />
+                              Meta atingida
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-2">
