@@ -271,6 +271,7 @@ export default function CompetitionDetails() {
       <div className="p-4 md:p-6 space-y-6 animate-fade-in">
         {/* Header */}
         <CompetitionHeader
+          competitionId={competition.id}
           name={competition.name}
           description={competition.description}
           startDate={competition.start_date}

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { isUUID } from "@/lib/utils";
+import { isCompetitionPlatformAllowed } from "@/lib/competitionUtils";
 
 // Types for the competition dashboard RPC response
 export interface CompetitionDashboardData {
@@ -122,8 +123,74 @@ export function useCompetitionDashboard(idOrCode: string | undefined) {
         console.error("get_competition_dashboard error:", error);
         throw error;
       }
-      
-      return data as unknown as CompetitionDashboardData | null;
+
+      const raw = data as unknown as CompetitionDashboardData | null;
+      if (!raw) return null;
+
+      // Filter revenues to only allowed platforms (99, Uber, InDrive) for all
+      // competition-related aggregates used in the UI.
+      const filterAndRecalcPlatformBreakdown = (
+        items: PlatformBreakdown[] | null,
+      ): PlatformBreakdown[] | null => {
+        if (!items) return null;
+        const filtered = items.filter((item) =>
+          isCompetitionPlatformAllowed(item.platform_name || item.platform_key),
+        );
+        const total = filtered.reduce((sum, item) => sum + item.total_value, 0);
+        return filtered.map((item) => ({
+          ...item,
+          percent: total > 0 ? Number(((item.total_value / total) * 100).toFixed(1)) : 0,
+        }));
+      };
+
+      const filteredPlatformBreakdown = filterAndRecalcPlatformBreakdown(
+        raw.platform_breakdown,
+      );
+      const filteredUserPlatformBreakdown = filterAndRecalcPlatformBreakdown(
+        raw.user_platform_breakdown,
+      );
+
+      const filteredDailySummary: DailySummary[] | null = raw.daily_summary
+        ? raw.daily_summary
+            .map((day) => {
+              const allowedItems = day.by_platform.filter((item) =>
+                isCompetitionPlatformAllowed(item.platform_label || item.platform),
+              );
+              const total = allowedItems.reduce((sum, item) => sum + item.amount, 0);
+              return {
+                ...day,
+                by_platform: allowedItems,
+                total_value: total,
+              };
+            })
+            .filter((day) => day.total_value > 0)
+        : null;
+
+      const totalCompetition = filteredPlatformBreakdown
+        ? filteredPlatformBreakdown.reduce((sum, item) => sum + item.total_value, 0)
+        : raw.totals.total_competition;
+
+      const totalUser = filteredUserPlatformBreakdown
+        ? filteredUserPlatformBreakdown.reduce((sum, item) => sum + item.total_value, 0)
+        : raw.totals.total_user;
+
+      const goalValue = raw.totals.goal_value;
+      const progressPercent = goalValue > 0 ? (totalCompetition / goalValue) * 100 : 0;
+      const remaining = Math.max(goalValue - totalCompetition, 0);
+
+      return {
+        ...raw,
+        platform_breakdown: filteredPlatformBreakdown,
+        user_platform_breakdown: filteredUserPlatformBreakdown,
+        daily_summary: filteredDailySummary,
+        totals: {
+          ...raw.totals,
+          total_competition: totalCompetition,
+          total_user: totalUser,
+          progress_percent: progressPercent,
+          remaining,
+        },
+      };
     },
     enabled: !!user && !!idOrCode,
     staleTime: 30000, // 30s cache
