@@ -37,7 +37,8 @@ import {
   Mail,
   Copy,
   Webhook,
-  ExternalLink
+  ExternalLink,
+  Send
 } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -449,6 +450,38 @@ export default function AdminPage() {
     onError: (error: Error) => {
       toast({ 
         title: "Erro ao enviar email de teste", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Resend password link mutation
+  const resendPasswordLinkMutation = useMutation({
+    mutationFn: async ({ email, skipSubscriptionCheck }: { email: string; skipSubscriptionCheck?: boolean }) => {
+      const response = await supabase.functions.invoke("resend-password-link", {
+        body: { email, skipSubscriptionCheck },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Erro ao enviar link");
+      }
+      
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+      
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Link enviado!", 
+        description: data.message || "O usuário receberá o email em breve."
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Erro ao enviar link", 
         description: error.message, 
         variant: "destructive" 
       });
@@ -893,6 +926,37 @@ export default function AdminPage() {
                                   <Plus className="w-4 h-4" />
                                 </Button>
                               )}
+
+                              {/* Resend Password Link */}
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={async () => {
+                                  // Get user email from auth
+                                  const { data } = await supabase.auth.admin.listUsers();
+                                  const authUser = data?.users?.find((u: any) => u.id === user.user_id);
+                                  if (authUser?.email) {
+                                    resendPasswordLinkMutation.mutate({ 
+                                      email: authUser.email, 
+                                      skipSubscriptionCheck: true 
+                                    });
+                                  } else {
+                                    toast({ 
+                                      title: "Email não encontrado", 
+                                      description: "Não foi possível encontrar o email do usuário.",
+                                      variant: "destructive" 
+                                    });
+                                  }
+                                }}
+                                disabled={resendPasswordLinkMutation.isPending}
+                                title="Reenviar link de senha"
+                              >
+                                {resendPasswordLinkMutation.isPending ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
+                              </Button>
 
                               {/* Delete User */}
                               <AlertDialog>
