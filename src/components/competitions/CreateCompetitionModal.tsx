@@ -31,7 +31,8 @@ const createSchema = z
     name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100),
     description: z.string().max(500).optional(),
     goal_value: z.coerce.number().positive("Meta deve ser maior que zero"),
-    prize_value: z.coerce.number().positive("Prêmio deve ser maior que zero"),
+    has_prize: z.boolean().default(true),
+    prize_value: z.coerce.number().min(0).optional(),
     start_date: z.string().min(1, "Data de início é obrigatória"),
     end_date: z.string().min(1, "Data de fim é obrigatória"),
     password: z.string().min(4, "Senha deve ter pelo menos 4 caracteres"),
@@ -52,6 +53,10 @@ const createSchema = z
   .refine((data) => !data.allow_teams || (data.team_size && Number(data.team_size) >= 2), {
     message: "Tamanho do time deve ser no mínimo 2",
     path: ["team_size"],
+  })
+  .refine((data) => !data.has_prize || (data.prize_value && data.prize_value > 0), {
+    message: "Prêmio deve ser maior que zero",
+    path: ["prize_value"],
   });
 
 type CreateFormValues = z.infer<typeof createSchema>;
@@ -80,6 +85,7 @@ export default function CreateCompetitionModal({
       name: "",
       description: "",
       goal_value: 0,
+      has_prize: true,
       prize_value: 0,
       start_date: today,
       end_date: defaultEnd,
@@ -93,6 +99,7 @@ export default function CreateCompetitionModal({
   });
 
   const watchAllowTeams = form.watch("allow_teams");
+  const watchHasPrize = form.watch("has_prize");
 
   const onSubmit = async (values: CreateFormValues) => {
     const result = await createMutation.mutateAsync({
@@ -100,7 +107,7 @@ export default function CreateCompetitionModal({
       description: values.description,
       goal_type: "income_goal",
       goal_value: values.goal_value,
-      prize_value: values.prize_value,
+      prize_value: values.has_prize ? (values.prize_value || 0) : 0,
       start_date: values.start_date,
       end_date: values.end_date,
       password: values.password,
@@ -246,25 +253,45 @@ export default function CreateCompetitionModal({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="prize_value"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor do Prêmio (R$) *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="500"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {watchHasPrize && (
+                <FormField
+                  control={form.control}
+                  name="prize_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor do Prêmio (R$) *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="500"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
+
+            <FormField
+              control={form.control}
+              name="has_prize"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Competição com prêmio</FormLabel>
+                    <FormDescription>
+                      Habilite para definir um valor de prêmio
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
