@@ -29,12 +29,19 @@ export interface EmailConfig {
 // CRITICAL: Hard-coded production URL - NEVER use lovable.app
 const PROD_APP_URL = "https://newgestao.app";
 
-// Email logo URL - dedicated path for email compatibility (ABSOLUTE URL ONLY)
-const EMAIL_LOGO_URL = `${PROD_APP_URL}/branding/ng.png`;
+// Supabase Storage URL for email logo (publicly accessible)
+const SUPABASE_PROJECT_ID = "bvondnxrfqizehlrcyhm";
+const SUPABASE_STORAGE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co/storage/v1/object/public`;
+
+// Email logo URL - using Supabase Storage for guaranteed availability
+// IMPORTANT: You need to upload the logo to the 'branding' bucket with filename 'ng.png'
+// Go to Lovable Cloud > Storage > branding bucket > upload public/logo-ng.png as ng.png
+const EMAIL_LOGO_URL = `${SUPABASE_STORAGE_URL}/branding/ng.png`;
 
 /**
  * Retorna a URL absoluta da logo para emails
  * SEMPRE usar esta função nos templates - NUNCA usar paths relativos
+ * Fallback: se a imagem não carregar, o alt="New Gestão" será exibido
  */
 export function getEmailLogoUrl(): string {
   return EMAIL_LOGO_URL;
