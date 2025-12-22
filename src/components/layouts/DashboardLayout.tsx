@@ -167,7 +167,7 @@ export default function DashboardLayout() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link to="/dashboard" className="flex items-center justify-center">
-                  <img src={logo} alt="New Gestão" className="w-9 h-9" />
+                  <img src={logo} alt="New Gestão" className="w-9 h-9 transition-transform duration-200 hover:scale-110" />
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right">
