@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Car, Inbox } from "lucide-react";
 import { PlatformRevenue } from "@/hooks/useRevenueByPlatform";
 import { usePlatforms } from "@/hooks/usePlatforms";
-import { CategoryIcon } from "@/components/ui/category-icon";
 
 interface PeriodPlatformBreakdownCardProps {
   platformRevenues: PlatformRevenue[];
@@ -21,7 +20,6 @@ export function PeriodPlatformBreakdownCard({
     const platform = platforms.find((p) => p.key === key);
     return {
       color: platform?.color || "#2563eb",
-      icon: platform?.icon || null,
       key: platform?.key || key,
     };
   };
@@ -69,7 +67,6 @@ export function PeriodPlatformBreakdownCard({
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Platform list */}
             <div className="space-y-2">
               {platformRevenues.map((revenue, index) => {
                 const percentage = totalRevenue > 0 ? (revenue.total_amount / totalRevenue) * 100 : 0;
@@ -80,17 +77,18 @@ export function PeriodPlatformBreakdownCard({
                     className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/30 border border-border"
                   >
                     <div className="flex items-center gap-2">
-                      <CategoryIcon 
-                        iconName={platformInfo.icon} 
-                        categoryKey={platformInfo.key}
-                        color={platformInfo.color}
-                        size={16} 
+                      <span
+                        className="inline-block h-3 w-3 rounded-full border border-border"
+                        style={{ backgroundColor: platformInfo.color }}
                       />
                       <span className="font-medium text-sm">{getDisplayName(revenue)}</span>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-sm">
-                        R$ {revenue.total_amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        R$ {revenue.total_amount.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {percentage.toFixed(0)}% • {revenue.total_trips} viagens
@@ -101,11 +99,13 @@ export function PeriodPlatformBreakdownCard({
               })}
             </div>
 
-            {/* Total */}
             <div className="pt-3 border-t border-border flex justify-between items-center">
               <span className="text-sm font-medium">Total do período</span>
               <span className="font-bold text-lg text-primary">
-                R$ {totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R$ {totalRevenue.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           </div>

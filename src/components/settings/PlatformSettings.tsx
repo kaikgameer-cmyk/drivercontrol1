@@ -25,8 +25,6 @@ import {
 import { Car, Loader2, Plus, Trash2, Pencil } from "lucide-react";
 import { usePlatforms, Platform } from "@/hooks/usePlatforms";
 import { useToast } from "@/hooks/use-toast";
-import { CategoryIcon } from "@/components/ui/category-icon";
-import { IconPicker } from "@/components/ui/icon-picker";
 
 export function PlatformSettings() {
   const { toast } = useToast();
@@ -46,17 +44,14 @@ export function PlatformSettings() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPlatformName, setNewPlatformName] = useState("");
-  const [newPlatformIcon, setNewPlatformIcon] = useState("Car");
   const [newPlatformColor, setNewPlatformColor] = useState("#FFC700");
 
   const [editingPlatformId, setEditingPlatformId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
-  const [editingIcon, setEditingIcon] = useState("Car");
   const [editingColor, setEditingColor] = useState("#FFC700");
 
   const [deleteConfirmPlatform, setDeleteConfirmPlatform] = useState<Platform | null>(null);
 
-  // Initialize user platforms when component mounts
   useEffect(() => {
     if (platforms.length > 0 && userPlatforms.length === 0) {
       initializeUserPlatforms.mutate();
@@ -72,11 +67,10 @@ export function PlatformSettings() {
     const safeColor = /^#[0-9A-Fa-f]{6}$/.test(newPlatformColor) ? newPlatformColor : "#FFC700";
 
     createPlatform.mutate(
-      { name: trimmedName, color: safeColor, icon: newPlatformIcon },
+      { name: trimmedName, color: safeColor },
       {
         onSuccess: () => {
           setNewPlatformName("");
-          setNewPlatformIcon("Car");
           setNewPlatformColor("#FFC700");
           setIsCreateDialogOpen(false);
         },
@@ -87,7 +81,6 @@ export function PlatformSettings() {
   const openEditDialog = (platform: Platform) => {
     setEditingPlatformId(platform.id);
     setEditingName(platform.name);
-    setEditingIcon(platform.icon || "Car");
     setEditingColor(platform.color || "#FFC700");
   };
 
@@ -100,11 +93,10 @@ export function PlatformSettings() {
     const safeColor = /^#[0-9A-Fa-f]{6}$/.test(editingColor) ? editingColor : "#FFC700";
 
     updatePlatform.mutate(
-      { platformId: editingPlatformId, name: trimmedName, color: safeColor, icon: editingIcon },
+      { platformId: editingPlatformId, name: trimmedName, color: safeColor },
       {
         onSuccess: () => {
           setEditingPlatformId(null);
-          setEditingIcon("Car");
         },
       }
     );
@@ -112,7 +104,7 @@ export function PlatformSettings() {
 
   const handleConfirmDelete = () => {
     if (!deleteConfirmPlatform) return;
-    
+
     deletePlatform.mutate(
       { platformId: deleteConfirmPlatform.id, platformKey: deleteConfirmPlatform.key },
       {
@@ -139,10 +131,8 @@ export function PlatformSettings() {
     );
   }
 
-  // Separate system platforms (user_id=null) from user platforms (user_id !== null)
-  // User platforms (including defaults added by the user) should be editable/deletable
   const systemPlatforms = platforms.filter((p) => p.user_id === null);
-  const userPlatforms_list = platforms.filter((p) => p.user_id !== null);
+  const userPlatformsList = platforms.filter((p) => p.user_id !== null);
 
   return (
     <>
@@ -153,27 +143,21 @@ export function PlatformSettings() {
               <Car className="w-5 h-5 text-primary" />
               <CardTitle className="text-lg">Plataformas e outras receitas</CardTitle>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCreateDialogOpen(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-1" />
               Cadastrar
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Selecione as plataformas e outras fontes de receita que você usa. Apenas as habilitadas aparecerão ao lançar receitas.
+            Selecione as plataformas e outras fontes de receita que você usa. Apenas as habilitadas
+            aparecerão ao lançar receitas.
           </p>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* System Platforms - only toggle, no edit/delete */}
           {systemPlatforms.length > 0 && (
             <>
-              <p className="text-xs text-muted-foreground">
-                Plataformas do sistema
-              </p>
+              <p className="text-xs text-muted-foreground">Plataformas do sistema</p>
               {systemPlatforms.map((platform) => {
                 const isEnabled = isPlatformEnabled(platform.key);
                 const isLastEnabled = isEnabled && enabledPlatforms.length === 1;
@@ -184,12 +168,14 @@ export function PlatformSettings() {
                     className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-secondary/30 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <CategoryIcon
-                        iconName={platform.icon}
-                        color={platform.color}
-                        size={18}
+                      <span
+                        className="inline-block h-3 w-3 rounded-full border border-border"
+                        style={{ backgroundColor: platform.color || "#FFC700" }}
                       />
-                      <Label htmlFor={`platform-${platform.key}`} className="font-medium cursor-pointer">
+                      <Label
+                        htmlFor={`platform-${platform.key}`}
+                        className="font-medium cursor-pointer"
+                      >
                         {platform.name}
                       </Label>
                     </div>
@@ -216,12 +202,11 @@ export function PlatformSettings() {
             </>
           )}
 
-          {/* User Platforms - with edit/delete */}
-          {userPlatforms_list.length > 0 && (
+          {userPlatformsList.length > 0 && (
             <div className={systemPlatforms.length > 0 ? "border-t border-border pt-4 mt-4" : ""}>
               <p className="text-xs text-muted-foreground mb-3">Suas plataformas e receitas</p>
 
-              {userPlatforms_list.map((platform) => {
+              {userPlatformsList.map((platform) => {
                 const isEnabled = isPlatformEnabled(platform.key);
                 const isLastEnabled = isEnabled && enabledPlatforms.length === 1;
 
@@ -231,12 +216,14 @@ export function PlatformSettings() {
                     className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-secondary/30 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <CategoryIcon
-                        iconName={platform.icon}
-                        color={platform.color}
-                        size={18}
+                      <span
+                        className="inline-block h-3 w-3 rounded-full border border-border"
+                        style={{ backgroundColor: platform.color || "#FFC700" }}
                       />
-                      <Label htmlFor={`platform-${platform.key}`} className="font-medium cursor-pointer">
+                      <Label
+                        htmlFor={`platform-${platform.key}`}
+                        className="font-medium cursor-pointer"
+                      >
                         {platform.name}
                       </Label>
                     </div>
@@ -249,7 +236,8 @@ export function PlatformSettings() {
                           if (!checked && isLastEnabled) {
                             toast({
                               title: "Pelo menos uma plataforma é obrigatória",
-                              description: "Você precisa ter ao menos uma plataforma habilitada.",
+                              description:
+                                "Você precisa ter ao menos uma plataforma habilitada.",
                               variant: "destructive",
                             });
                             return;
@@ -284,7 +272,6 @@ export function PlatformSettings() {
         </CardContent>
       </Card>
 
-      {/* Create Platform Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -302,16 +289,7 @@ export function PlatformSettings() {
             </div>
 
             <div className="space-y-2">
-              <Label>Ícone</Label>
-              <IconPicker
-                value={newPlatformIcon}
-                onChange={setNewPlatformIcon}
-                color={newPlatformColor}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Cor</Label>
+              <Label>Cor da plataforma</Label>
               <div className="flex items-center gap-3">
                 <input
                   type="color"
@@ -320,7 +298,7 @@ export function PlatformSettings() {
                   className="h-9 w-9 rounded-md border border-border bg-background p-1 cursor-pointer"
                 />
                 <span className="text-xs text-muted-foreground">
-                  Cor do ícone
+                  Essa cor será usada para identificar a plataforma nos gráficos e listas.
                 </span>
               </div>
             </div>
@@ -330,7 +308,6 @@ export function PlatformSettings() {
               variant="outline"
               onClick={() => {
                 setNewPlatformName("");
-                setNewPlatformIcon("Car");
                 setNewPlatformColor("#FFC700");
                 setIsCreateDialogOpen(false);
               }}
@@ -351,8 +328,10 @@ export function PlatformSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Platform Dialog */}
-      <Dialog open={!!editingPlatformId} onOpenChange={(open) => !open && setEditingPlatformId(null)}>
+      <Dialog
+        open={!!editingPlatformId}
+        onOpenChange={(open) => !open && setEditingPlatformId(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar plataforma ou receita</DialogTitle>
@@ -369,16 +348,7 @@ export function PlatformSettings() {
             </div>
 
             <div className="space-y-2">
-              <Label>Ícone</Label>
-              <IconPicker
-                value={editingIcon}
-                onChange={setEditingIcon}
-                color={editingColor}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Cor</Label>
+              <Label>Cor da plataforma</Label>
               <div className="flex items-center gap-3">
                 <input
                   type="color"
@@ -387,16 +357,13 @@ export function PlatformSettings() {
                   className="h-9 w-9 rounded-md border border-border bg-background p-1 cursor-pointer"
                 />
                 <span className="text-xs text-muted-foreground">
-                  Cor do ícone
+                  Essa cor será usada para identificar a plataforma nos gráficos e listas.
                 </span>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditingPlatformId(null)}
-            >
+            <Button variant="outline" onClick={() => setEditingPlatformId(null)}>
               Cancelar
             </Button>
             <Button
@@ -413,11 +380,15 @@ export function PlatformSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteConfirmPlatform} onOpenChange={(open) => !open && setDeleteConfirmPlatform(null)}>
+      <AlertDialog
+        open={!!deleteConfirmPlatform}
+        onOpenChange={(open) => !open && setDeleteConfirmPlatform(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir "{deleteConfirmPlatform?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Excluir "{deleteConfirmPlatform?.name}"?
+            </AlertDialogTitle>
             <AlertDialogDescription>
               Isso remove a opção das configurações. Lançamentos antigos não serão apagados.
             </AlertDialogDescription>
