@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Car, Inbox } from "lucide-react";
 import { usePlatforms } from "@/hooks/usePlatforms";
-import { CategoryIcon } from "@/components/ui/category-icon";
 
 interface PlatformData {
   name: string;
@@ -15,7 +14,6 @@ interface PlatformBreakdownCardProps {
 export function PlatformBreakdownCard({ revenues }: PlatformBreakdownCardProps) {
   const { platforms } = usePlatforms();
 
-  // Group by platform label coming from revenues
   const platformData = revenues.reduce((acc, r) => {
     const platformName = r.app || "Outros";
     if (!acc[platformName]) {
@@ -37,16 +35,13 @@ export function PlatformBreakdownCard({ revenues }: PlatformBreakdownCardProps) 
   const getPlatformInfo = (name: string) => {
     const normalized = name.toLowerCase();
 
-    // Tenta casar primeiro com o slug (key)
     const byKey = platforms.find((p) => p.key.toLowerCase() === normalized);
-    if (byKey) return { color: byKey.color, icon: byKey.icon, key: byKey.key };
+    if (byKey) return { color: byKey.color, key: byKey.key };
 
-    // Depois tenta pelo nome amigável salvo
     const byName = platforms.find((p) => p.name.toLowerCase() === normalized);
-    if (byName) return { color: byName.color, icon: byName.icon, key: byName.key };
+    if (byName) return { color: byName.color, key: byName.key };
 
-    // Fallback para dados antigos
-    return { color: "#2563eb", icon: null, key: name };
+    return { color: "#2563eb", key: name };
   };
 
   return (
@@ -63,13 +58,10 @@ export function PlatformBreakdownCard({ revenues }: PlatformBreakdownCardProps) 
             <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center">
               <Inbox className="w-5 h-5 text-muted-foreground" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              Nenhuma receita neste dia
-            </p>
+            <p className="text-sm text-muted-foreground">Nenhuma receita neste dia</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Platform cards in a grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {platformsList.map((platform) => {
                 const percentage = totalRevenue > 0 ? (platform.total / totalRevenue) * 100 : 0;
@@ -80,16 +72,19 @@ export function PlatformBreakdownCard({ revenues }: PlatformBreakdownCardProps) 
                     className="p-3 rounded-lg bg-secondary/30 border border-border space-y-1"
                   >
                     <div className="flex items-center gap-2">
-                      <CategoryIcon 
-                        iconName={platformInfo.icon} 
-                        categoryKey={platformInfo.key}
-                        color={platformInfo.color}
-                        size={16} 
+                      <span
+                        className="inline-block h-3 w-3 rounded-full border border-border"
+                        style={{ backgroundColor: platformInfo.color }}
                       />
-                      <span className="font-medium capitalize text-sm truncate">{platform.name}</span>
+                      <span className="font-medium capitalize text-sm truncate">
+                        {platform.name}
+                      </span>
                     </div>
                     <p className="text-lg font-bold">
-                      R$ {platform.total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      R$ {platform.total.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {percentage.toFixed(0)}% do total
@@ -99,11 +94,13 @@ export function PlatformBreakdownCard({ revenues }: PlatformBreakdownCardProps) 
               })}
             </div>
 
-            {/* Total */}
             <div className="pt-3 border-t border-border flex justify-between items-center">
               <span className="text-sm font-medium">Total do dia</span>
               <span className="font-bold text-lg text-primary">
-                R$ {totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R$ {totalRevenue.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           </div>
