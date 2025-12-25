@@ -313,12 +313,12 @@ export default function Dashboard() {
 
     return (
       <PullToRefresh onRefresh={handleDayRefresh} className="h-full">
-      <div className="p-4 sm:p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto w-full">
         {/* Header */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold">Dashboard</h1>
+              <h1 className="text-2xl font-bold break-words">Dashboard</h1>
               <p className="text-muted-foreground">
                 Acompanhe seus resultados financeiros
               </p>
@@ -527,12 +527,12 @@ export default function Dashboard() {
   // === NON-DAY MODES (week, month, year) ===
   return (
     <PullToRefresh onRefresh={handlePeriodRefresh} className="h-full">
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto w-full">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold">Dashboard</h1>
+            <h1 className="text-2xl font-bold break-words">Dashboard</h1>
             <p className="text-muted-foreground">
               Acompanhe seus resultados financeiros
             </p>
