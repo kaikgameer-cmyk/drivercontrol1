@@ -106,10 +106,11 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased w-full max-w-full overflow-x-hidden;
     font-family: 'Outfit', sans-serif;
   }
 }
+
 
 @layer utilities {
   /* Logo invert for dark backgrounds */

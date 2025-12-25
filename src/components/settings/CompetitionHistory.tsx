@@ -40,59 +40,65 @@ export function CompetitionHistory() {
     totalEarned: historyStats?.totalPrizes || 0,
   };
 
-  if (isLoading) {
-    return (
-      <Card variant="elevated">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-primary" />
-            <CardTitle className="text-lg">Histórico de Competições</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="flex justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card variant="elevated">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Trophy className="w-5 h-5 text-primary" />
-          <CardTitle className="text-lg">Histórico de Competições</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Histórico de Competições</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Stats Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="text-center p-3 rounded-lg bg-muted/50">
-            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-            <div className="text-xs text-muted-foreground">Participações</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="flex flex-col items-start gap-1 p-3 rounded-lg bg-muted/60 min-w-0">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Participações</span>
+            </div>
+            <div className="text-lg md:text-2xl font-semibold text-foreground break-words">
+              {stats.total}
+            </div>
           </div>
-          <div className="text-center p-3 rounded-lg bg-primary/10">
-            <div className="text-2xl font-bold text-primary">{stats.wins}</div>
-            <div className="text-xs text-muted-foreground">Vitórias</div>
+          <div className="flex flex-col items-start gap-1 p-3 rounded-lg bg-primary/10 min-w-0">
+            <div className="flex items-center gap-2">
+              <Medal className="w-4 h-4 text-primary" />
+              <span className="text-xs text-muted-foreground">Vitórias</span>
+            </div>
+            <div className="text-lg md:text-2xl font-semibold text-primary break-words">
+              {stats.wins}
+            </div>
           </div>
-          <div className="text-center p-3 rounded-lg bg-green-500/10">
-            <div className="text-2xl font-bold text-green-500">{stats.active}</div>
-            <div className="text-xs text-muted-foreground">Ativas</div>
+          <div className="flex flex-col items-start gap-1 p-3 rounded-lg bg-muted/60 min-w-0">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-success" />
+              <span className="text-xs text-muted-foreground">Ativas</span>
+            </div>
+            <div className="text-lg md:text-2xl font-semibold text-success break-words">
+              {stats.active}
+            </div>
           </div>
-          <div className="text-center p-3 rounded-lg bg-amber-500/10">
-            <div className="text-2xl font-bold text-amber-500">{formatCurrency(stats.totalEarned)}</div>
-            <div className="text-xs text-muted-foreground">Prêmios ganhos</div>
+          <div className="flex flex-col items-start gap-1 p-3 rounded-lg bg-muted/60 min-w-0">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <span className="text-xs text-muted-foreground">Prêmios ganhos</span>
+            </div>
+            <div className="text-sm md:text-base font-semibold text-amber-400 break-words">
+              {formatCurrency(stats.totalEarned)}
+            </div>
           </div>
         </div>
 
         {/* Achievements */}
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-muted-foreground">Conquistas</h3>
-          <AchievementBadges
-            wins={stats.wins}
-            participations={stats.total}
-            totalPrizes={stats.totalEarned}
-          />
+          <div className="-mx-1 px-1 overflow-x-auto pb-1">
+            <AchievementBadges
+              wins={stats.wins}
+              participations={stats.total}
+              totalPrizes={stats.totalEarned}
+            />
+          </div>
         </div>
 
         {/* Competition List */}
@@ -102,15 +108,15 @@ export function CompetitionHistory() {
               <Link
                 key={competition.id}
                 to={`/dashboard/competicoes/${competition.id}`}
-                className="block"
+                className="block min-w-0"
               >
-                <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors min-w-0">
                   {/* Icon */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    competition.is_winner 
-                      ? "bg-primary/20" 
-                      : "bg-muted"
-                  }`}>
+                  <div
+                    className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${
+                      competition.is_winner ? "bg-primary/20" : "bg-muted"
+                    }`}
+                  >
                     {competition.is_winner ? (
                       <Medal className="w-5 h-5 text-primary" />
                     ) : (
@@ -119,51 +125,92 @@ export function CompetitionHistory() {
                   </div>
 
                   {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium truncate">{competition.name}</span>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-medium text-sm sm:text-base break-words line-clamp-2">
+                        {competition.name}
+                      </span>
                       {competition.is_winner && (
-                        <Badge className="bg-primary/20 text-primary border-primary/30 gap-1">
+                        <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 text-[11px]">
                           <Trophy className="w-3 h-3" />
                           Vencedor
                         </Badge>
                       )}
                       {competition.role === "host" && (
-                        <Badge variant="outline" className="text-xs">Host</Badge>
+                        <Badge variant="outline" className="text-[11px]">
+                          Host
+                        </Badge>
                       )}
+                      {getStatusBadge(competition.status)}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1 min-w-0">
                         <Calendar className="w-3 h-3" />
-                        {format(new Date(competition.start_date), "dd MMM", { locale: ptBR })} - {format(new Date(competition.end_date), "dd MMM yyyy", { locale: ptBR })}
+                        <span className="truncate">
+                          {format(new Date(competition.start_date), "dd MMM", { locale: ptBR })} – {" "}
+                          {format(new Date(competition.end_date), "dd MMM yyyy", { locale: ptBR })}
+                        </span>
                       </span>
                       {competition.is_competitor && (
                         <span className="flex items-center gap-1">
                           <Target className="w-3 h-3" />
-                          {formatCurrency(competition.user_score)}
+                          <span className="whitespace-nowrap">
+                            Meu total: {formatCurrency(competition.user_score)}
+                          </span>
                         </span>
                       )}
                     </div>
+
+                    {/* Meta / Total / Prêmio mini grid */}
+                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:text-[13px]">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-muted-foreground">Meta individual</span>
+                        <span className="font-medium break-words">
+                          {formatCurrency(competition.goal_value)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-muted-foreground">Meu total</span>
+                        <span className="font-medium break-words">
+                          {formatCurrency(competition.user_score)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col min-w-0 col-span-2 sm:col-span-1">
+                        <span className="text-muted-foreground">Prêmio</span>
+                        <span className="font-medium break-words">
+                          {formatCurrency(competition.prize_value)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Status & Prize */}
-                  <div className="text-right space-y-1">
-                    {getStatusBadge(competition.status)}
-                    {competition.payout_status === "winner" && competition.payout_value !== undefined ? (
-                      <div className="text-xs text-primary font-medium">
-                        Você ganhou: {formatCurrency(competition.payout_value)}
+                  {/* Status & Prize summary */}
+                  <div className="mt-2 sm:mt-0 sm:text-right space-y-1 text-xs flex-shrink-0">
+                    {competition.payout_status === "winner" &&
+                    competition.payout_value !== undefined ? (
+                      <div className="text-primary font-medium">
+                        Você ganhou:
+                        <span className="ml-1">
+                          {formatCurrency(competition.payout_value)}
+                        </span>
                       </div>
                     ) : competition.payout_status === "no_winner" ? (
-                      <div className="text-xs text-muted-foreground">
-                        Sem vencedor
-                      </div>
-                    ) : competition.status === "finished" && competition.payout_status === "loser" ? (
-                      <div className="text-xs text-muted-foreground">
-                        Prêmio: {formatCurrency(competition.prize_value)}
+                      <div className="text-muted-foreground">Sem vencedor</div>
+                    ) : competition.status === "finished" &&
+                      competition.payout_status === "loser" ? (
+                      <div className="text-muted-foreground">
+                        Prêmio total:
+                        <span className="ml-1">
+                          {formatCurrency(competition.prize_value)}
+                        </span>
                       </div>
                     ) : (
-                      <div className="text-xs text-muted-foreground">
-                        Prêmio: {formatCurrency(competition.prize_value)}
+                      <div className="text-muted-foreground">
+                        Prêmio total:
+                        <span className="ml-1">
+                          {formatCurrency(competition.prize_value)}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -175,7 +222,10 @@ export function CompetitionHistory() {
           <div className="text-center py-8 text-muted-foreground">
             <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>Você ainda não participou de nenhuma competição.</p>
-            <Link to="/dashboard/competicoes" className="text-primary hover:underline text-sm">
+            <Link
+              to="/dashboard/competicoes"
+              className="text-primary hover:underline text-sm"
+            >
               Ver competições disponíveis
             </Link>
           </div>
