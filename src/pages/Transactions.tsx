@@ -1358,7 +1358,7 @@ export default function Transactions() {
             </CardContent>
           </Card>
 
-          {/* Transactions Table */}
+          {/* Transactions List / Table */}
           <Card variant="elevated">
             <CardHeader>
               <CardTitle className="text-lg">Lançamentos do Período</CardTitle>
@@ -1369,33 +1369,24 @@ export default function Transactions() {
                   Nenhum lançamento encontrado no período selecionado
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-xs sm:text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Data</th>
-                        <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Tipo</th>
-                        <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground hidden sm:table-cell">Categoria</th>
-                        <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground hidden md:table-cell">Detalhes</th>
-                        <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Valor</th>
-                        <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allTransactions.map((transaction) => (
-                        <tr
-                          key={`${transaction.transactionType}-${transaction.id}`}
-                          className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
-                        >
-                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-center">
-                            {(() => {
-                              const [year, month, day] = transaction.date.split('-').map(Number);
-                              return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
-                            })()}
-                          </td>
-                          <td className="py-3 px-2 sm:px-4 text-center">
+                <>
+                  {/* Mobile cards */}
+                  <div className="space-y-3 md:hidden">
+                    {allTransactions.map((transaction) => (
+                      <div
+                        key={`${transaction.transactionType}-${transaction.id}`}
+                        className="rounded-lg border border-border bg-muted/20 p-3 flex flex-col gap-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {(() => {
+                                const [year, month, day] = transaction.date.split("-").map(Number);
+                                return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
+                              })()}
+                            </span>
                             <span
-                              className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ${
+                              className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full ${
                                 transaction.transactionType === "receita"
                                   ? "bg-success/20 text-success"
                                   : "bg-destructive/20 text-destructive"
@@ -1406,107 +1397,267 @@ export default function Transactions() {
                               ) : (
                                 <TrendingDown className="w-3 h-3" />
                               )}
-                              <span className="hidden sm:inline">
-                                {transaction.transactionType === "receita" ? "Receita" : "Despesa"}
-                              </span>
+                              {transaction.transactionType === "receita" ? "Receita" : "Despesa"}
                             </span>
-                          </td>
-                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-center hidden sm:table-cell">
-                            <div className="flex flex-col items-center">
-                              {transaction.transactionType === "receita" ? (
-                                <span className="flex items-center gap-1.5">
-                                  <TrendingUp className="w-4 h-4 text-success" />
-                                  <span>Receita do Dia</span>
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-1.5">
-                                  {(() => {
-                                    const cat = enabledCategories.find(c => c.key === transaction.category);
-                                    return <CategoryIcon iconName={cat?.icon} color={cat?.color} size={16} />;
-                                  })()}
-                                  <span className="capitalize">{transaction.category || "—"}</span>
-                                </span>
-                              )}
-                              {transaction.transactionType === "despesa" && (transaction as any).fuel_logs && (
-                                <span className="text-xs text-primary flex items-center gap-1 mt-0.5">
-                                  {isElectricTransaction(transaction as any) ? (
-                                    <Zap className="w-3 h-3" />
-                                  ) : (
-                                    <Fuel className="w-3 h-3" />
-                                  )}
-                                  {Number((transaction as any).fuel_logs.liters).toFixed(1)}
-                                  {getEnergyUnitLabel(isElectricTransaction(transaction as any))}
-                                  {(transaction as any).fuel_logs.odometer_km && (
-                                    <> • {new Intl.NumberFormat("pt-BR").format(Number((transaction as any).fuel_logs.odometer_km))} km</>
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-muted-foreground text-center hidden md:table-cell">
-                            {transaction.transactionType === "receita" ? (
-                              <div className="flex items-center justify-center gap-2 text-xs">
-                                <span className="flex items-center gap-1">
-                                  <Car className="w-3 h-3" />
-                                  {(transaction as any).trips || 0}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Gauge className="w-3 h-3" />
-                                  {(transaction as any).km_rodados || 0}km
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center">
-                                <span className="capitalize">{(transaction as any).payment_method || "—"}</span>
-                                {(transaction as any).total_installments && (transaction as any).total_installments > 1 && (
-                                  <span className="text-xs text-primary">
-                                    {(transaction as any).current_installment}/{(transaction as any).total_installments}x
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td
-                            className={`py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-center ${
+                          </div>
+                          <div
+                            className={`text-sm font-semibold ${
                               transaction.transactionType === "receita" ? "text-success" : "text-destructive"
                             }`}
                           >
-                            {transaction.transactionType === "receita" ? "+" : "-"}R$ {Number(transaction.amount).toFixed(2)}
-                          </td>
-                          <td className="py-3 px-2 sm:px-4 text-center">
-                            <div className="flex items-center justify-center gap-0.5 sm:gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
-                                onClick={() => handleEditClick(transaction)}
-                              >
-                                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive"
-                                onClick={() => {
-                                  if (transaction.transactionType === "receita") {
-                                    handleDeleteIncomeDay(transaction.id!);
-                                  } else {
-                                    deleteExpense.mutate({ 
-                                      id: transaction.id, 
-                                      hasFuelLog: !!(transaction as any).fuel_log_id 
-                                    });
-                                  }
-                                }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                              </Button>
+                            {transaction.transactionType === "receita" ? "+" : "-"}R$ {" "}
+                            {Number(transaction.amount).toFixed(2)}
+                          </div>
+                        </div>
+
+                        {/* Categoria / detalhes compactos */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 text-foreground/90">
+                            {transaction.transactionType === "receita" ? (
+                              <>
+                                <TrendingUp className="w-3.5 h-3.5 text-success" />
+                                <span>Receita do Dia</span>
+                              </>
+                            ) : (
+                              <>
+                                {(() => {
+                                  const cat = enabledCategories.find((c) => c.key === transaction.category);
+                                  return <CategoryIcon iconName={cat?.icon} color={cat?.color} size={16} />;
+                                })()}
+                                <span className="capitalize">{transaction.category || "—"}</span>
+                              </>
+                            )}
+                          </div>
+
+                          {transaction.transactionType === "despesa" && (transaction as any).fuel_logs && (
+                            <span className="text-xs text-primary flex items-center gap-1">
+                              {isElectricTransaction(transaction as any) ? (
+                                <Zap className="w-3 h-3" />
+                              ) : (
+                                <Fuel className="w-3 h-3" />
+                              )}
+                              {Number((transaction as any).fuel_logs.liters).toFixed(1)}
+                              {getEnergyUnitLabel(isElectricTransaction(transaction as any))}
+                              {(transaction as any).fuel_logs.odometer_km && (
+                                <>
+                                  {" "}•{" "}
+                                  {new Intl.NumberFormat("pt-BR").format(
+                                    Number((transaction as any).fuel_logs.odometer_km),
+                                  )}{" "}
+                                  km
+                                </>
+                              )}
+                            </span>
+                          )}
+
+                          {transaction.transactionType === "despesa" &&
+                            (transaction as any).total_installments &&
+                            (transaction as any).total_installments > 1 && (
+                              <span className="text-xs text-primary">
+                                {(transaction as any).current_installment}/
+                                {(transaction as any).total_installments}x
+                              </span>
+                            )}
+
+                          {transaction.transactionType === "receita" && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Car className="w-3 h-3" />
+                                {(transaction as any).trips || 0}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Gauge className="w-3 h-3" />
+                                {(transaction as any).km_rodados || 0}km
+                              </span>
                             </div>
-                          </td>
+                          )}
+                        </div>
+
+                        {/* Ações */}
+                        <div className="flex items-center justify-end gap-1 pt-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-primary"
+                            onClick={() => handleEditClick(transaction)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              if (transaction.transactionType === "receita") {
+                                handleDeleteIncomeDay(transaction.id!);
+                              } else {
+                                deleteExpense.mutate({
+                                  id: transaction.id,
+                                  hasFuelLog: !!(transaction as any).fuel_log_id,
+                                });
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full min-w-[640px] text-xs sm:text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Data</th>
+                          <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Tipo</th>
+                          <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground hidden sm:table-cell">
+                            Categoria
+                          </th>
+                          <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground hidden md:table-cell">
+                            Detalhes
+                          </th>
+                          <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Valor</th>
+                          <th className="text-center py-3 px-2 sm:px-4 font-medium text-muted-foreground">Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {allTransactions.map((transaction) => (
+                          <tr
+                            key={`${transaction.transactionType}-${transaction.id}`}
+                            className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                          >
+                            <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-center">
+                              {(() => {
+                                const [year, month, day] = transaction.date.split("-").map(Number);
+                                return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
+                              })()}
+                            </td>
+                            <td className="py-3 px-2 sm:px-4 text-center">
+                              <span
+                                className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ${
+                                  transaction.transactionType === "receita"
+                                    ? "bg-success/20 text-success"
+                                    : "bg-destructive/20 text-destructive"
+                                }`}
+                              >
+                                {transaction.transactionType === "receita" ? (
+                                  <TrendingUp className="w-3 h-3" />
+                                ) : (
+                                  <TrendingDown className="w-3 h-3" />
+                                )}
+                                <span className="hidden sm:inline">
+                                  {transaction.transactionType === "receita" ? "Receita" : "Despesa"}
+                                </span>
+                              </span>
+                            </td>
+                            <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-center hidden sm:table-cell">
+                              <div className="flex flex-col items-center">
+                                {transaction.transactionType === "receita" ? (
+                                  <span className="flex items-center gap-1.5">
+                                    <TrendingUp className="w-4 h-4 text-success" />
+                                    <span>Receita do Dia</span>
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1.5">
+                                    {(() => {
+                                      const cat = enabledCategories.find((c) => c.key === transaction.category);
+                                      return <CategoryIcon iconName={cat?.icon} color={cat?.color} size={16} />;
+                                    })()}
+                                    <span className="capitalize">{transaction.category || "—"}</span>
+                                  </span>
+                                )}
+                                {transaction.transactionType === "despesa" && (transaction as any).fuel_logs && (
+                                  <span className="text-xs text-primary flex items-center gap-1 mt-0.5">
+                                    {isElectricTransaction(transaction as any) ? (
+                                      <Zap className="w-3 h-3" />
+                                    ) : (
+                                      <Fuel className="w-3 h-3" />
+                                    )}
+                                    {Number((transaction as any).fuel_logs.liters).toFixed(1)}
+                                    {getEnergyUnitLabel(isElectricTransaction(transaction as any))}
+                                    {(transaction as any).fuel_logs.odometer_km && (
+                                      <>
+                                        {" "}• {" "}
+                                        {new Intl.NumberFormat("pt-BR").format(
+                                          Number((transaction as any).fuel_logs.odometer_km),
+                                        )}{" "}
+                                        km
+                                      </>
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-muted-foreground text-center hidden md:table-cell">
+                              {transaction.transactionType === "receita" ? (
+                                <div className="flex items-center justify-center gap-2 text-xs">
+                                  <span className="flex items-center gap-1">
+                                    <Car className="w-3 h-3" />
+                                    {(transaction as any).trips || 0}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Gauge className="w-3 h-3" />
+                                    {(transaction as any).km_rodados || 0}km
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center">
+                                  <span className="capitalize">{(transaction as any).payment_method || "—"}</span>
+                                  {(transaction as any).total_installments &&
+                                    (transaction as any).total_installments > 1 && (
+                                      <span className="text-xs text-primary">
+                                        {(transaction as any).current_installment}/
+                                        {(transaction as any).total_installments}x
+                                      </span>
+                                    )}
+                                </div>
+                              )}
+                            </td>
+                            <td
+                              className={`py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-center ${
+                                transaction.transactionType === "receita" ? "text-success" : "text-destructive"
+                              }`}
+                            >
+                              {transaction.transactionType === "receita" ? "+" : "-"}R$ {" "}
+                              {Number(transaction.amount).toFixed(2)}
+                            </td>
+                            <td className="py-3 px-2 sm:px-4 text-center">
+                              <div className="flex items-center justify-center gap-0.5 sm:gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
+                                  onClick={() => handleEditClick(transaction)}
+                                >
+                                  <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => {
+                                    if (transaction.transactionType === "receita") {
+                                      handleDeleteIncomeDay(transaction.id!);
+                                    } else {
+                                      deleteExpense.mutate({
+                                        id: transaction.id,
+                                        hasFuelLog: !!(transaction as any).fuel_log_id,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
