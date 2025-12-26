@@ -1,22 +1,21 @@
-const CACHE_NAME = "ng-static-v3"; // <- sempre aumente quando mudar assets
+const CACHE_NAME = "ng-static-v4";
+
 const URLS_TO_CACHE = [
   "/",
   "/manifest.json",
-
-  // Ícones v2
-  "/favicon-v2.png",
-  "/apple-touch-icon-v2.png",
-  "/icon-192-v2.png",
-  "/icon-512-v2.png",
-  "/maskable-icon-512-v2.png",
-
-  // opcional (se ainda existir e você usa)
+  "/favicon.png",
   "/favicon.ico",
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/maskable-icon-512.png",
+  "/logo-ng.png",
+  "/screenshots/dashboard.png",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE)),
   );
 
   self.skipWaiting?.();
@@ -28,9 +27,9 @@ self.addEventListener("activate", (event) => {
       Promise.all(
         cacheNames
           .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      )
-    )
+          .map((name) => caches.delete(name)),
+      ),
+    ),
   );
 
   self.clients?.claim?.();
@@ -38,17 +37,15 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
+
   if (request.method !== "GET") return;
 
-  const url = new URL(request.url);
+  const acceptHeader = request.headers.get("accept") || "";
+  const isNavigateRequest =
+    request.mode === "navigate" || acceptHeader.includes("text/html");
 
-  // ✅ Para manifest e ícones: NETWORK-FIRST (sempre tenta pegar atualizado)
-  const isIconOrManifest =
-    url.pathname === "/manifest.json" ||
-    url.pathname.endsWith(".png") ||
-    url.pathname.endsWith(".ico");
-
-  if (isIconOrManifest) {
+  // Navegação: network-first com fallback para "/" em modo offline
+  if (isNavigateRequest) {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -56,13 +53,25 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(() =>
+          caches.match(request).then((cached) => cached || caches.match("/")),
+        ),
     );
     return;
   }
 
-  // ✅ Para o resto: CACHE-FIRST
+  // Assets: cache-first com fallback para network
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).catch(() => caches.match("/")))
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+
+      return fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request));
+    }),
   );
 });
