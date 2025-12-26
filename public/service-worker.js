@@ -1,5 +1,15 @@
-const CACHE_NAME = "ng-static-v1";
-const URLS_TO_CACHE = ["/", "/index.html", "/manifest.json", "/favicon.png"];
+const CACHE_NAME = "ng-static-v2";
+const URLS_TO_CACHE = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/favicon.png",
+  "/favicon.ico",
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/maskable-icon-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

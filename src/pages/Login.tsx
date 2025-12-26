@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import heroCarImage from "@/assets/hero-car.png";
-import logo from "@/assets/logo-ng.png";
 import { z } from "zod";
 
 // Zod schema for input validation
@@ -205,7 +204,7 @@ export default function Login() {
         
         <div className="relative z-10 flex flex-col justify-center p-12">
           <Link to="/" className="flex items-center gap-2 mb-12">
-            <img src={logo} alt="New Gestão" className="w-10 h-10" />
+            <img src="/logo-ng.png" alt="New Gestão" className="w-10 h-10" />
             <span className="text-xl font-semibold">New Gestão</span>
           </Link>
           
@@ -250,7 +249,7 @@ export default function Login() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
-            <img src={logo} alt="New Gestão" className="w-10 h-10" />
+            <img src="/logo-ng.png" alt="New Gestão" className="w-10 h-10" />
             <span className="text-xl font-semibold">New Gestão</span>
           </div>
           
