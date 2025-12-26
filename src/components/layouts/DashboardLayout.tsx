@@ -27,7 +27,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/logo-ng.png";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { SubscriptionPaywall } from "@/components/SubscriptionPaywall";
@@ -178,7 +177,7 @@ export default function DashboardLayout() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link to="/dashboard" className="flex items-center justify-center">
-                  <img src={logo} alt="New Gestão" className="w-9 h-9 transition-transform duration-200 hover:scale-110" />
+                  <img src="/logo-ng.png" alt="New Gestão" className="w-9 h-9 transition-transform duration-200 hover:scale-110" />
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right">
@@ -253,7 +252,7 @@ export default function DashboardLayout() {
             <Menu className="w-5 h-5" />
           </Button>
           <Link to="/dashboard" className="flex items-center gap-2">
-            <img src={logo} alt="New Gestão" className="w-8 h-8" />
+            <img src="/logo-ng.png" alt="New Gestão" className="w-8 h-8" />
           </Link>
           <UserAvatar
             avatarUrl={avatarUrl}

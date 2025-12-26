@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, Fuel, CreditCard, Calendar } from "lucide-react";
-import logo from "@/assets/logo-ng.png";
 
 export function HeroSection() {
   return (
@@ -15,7 +14,7 @@ export function HeroSection() {
           {/* Left side - Text */}
           <div className="space-y-8 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
-              <img src={logo} alt="New Gestão" className="w-5 h-5" />
+              <img src="/logo-ng.png" alt="New Gestão" className="w-5 h-5" />
               <span className="text-sm text-primary font-medium">Para motoristas de app</span>
             </div>
             

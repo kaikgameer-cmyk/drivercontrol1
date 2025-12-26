@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo-ng.png";
 
 export function Header() {
   return (
@@ -11,7 +10,7 @@ export function Header() {
 
         {/* Logo - Centered */}
         <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-          <img src={logo} alt="New Gestão" className="w-10 h-10" />
+          <img src="/logo-ng.png" alt="New Gestão" className="w-10 h-10" />
         </Link>
 
         {/* Navigation */}

@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo-ng.png";
 
 export function Footer() {
   return (
@@ -7,7 +6,7 @@ export function Footer() {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt="New Gestão" className="w-8 h-8" />
+            <img src="/logo-ng.png" alt="New Gestão" className="w-8 h-8" />
             <span className="text-lg font-semibold">New Gestão</span>
           </Link>
           
