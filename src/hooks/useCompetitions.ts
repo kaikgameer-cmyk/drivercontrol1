@@ -24,6 +24,27 @@ export interface Competition {
   is_listed: boolean;
 }
 
+const COMPETITION_FIELDS = [
+  "id",
+  "code",
+  "name",
+  "description",
+  "goal_type",
+  "goal_value",
+  "prize_value",
+  "has_prize",
+  "start_date",
+  "end_date",
+  "max_members",
+  "allow_teams",
+  "team_size",
+  "created_by",
+  "created_at",
+  "is_public",
+  "host_participates",
+  "is_listed",
+].join(", ");
+
 export interface CompetitionMember {
   id: string;
   user_id: string;
@@ -132,13 +153,12 @@ export function useMyCompetitions() {
   return useQuery({
     queryKey: ["my-competitions", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = (await supabase
         .from("competitions")
-        .select(`
-          *,
-          competition_members!inner(user_id, role, is_competitor)
-        `)
-        .order("created_at", { ascending: false });
+        .select(
+          `${COMPETITION_FIELDS}, competition_members!inner(user_id, role, is_competitor)` as any,
+        )
+        .order("created_at", { ascending: false })) as { data: any; error: any };
 
       if (error) throw error;
       
@@ -165,13 +185,12 @@ export function useFinishedCompetitions() {
     queryKey: ["finished-competitions", user?.id],
     queryFn: async () => {
       // Get all competitions user is member of
-      const { data: competitions, error: compError } = await supabase
+      const { data: competitions, error: compError } = (await supabase
         .from("competitions")
-        .select(`
-          *,
-          competition_members!inner(user_id, role, is_competitor)
-        `)
-        .order("end_date", { ascending: false });
+        .select(
+          `${COMPETITION_FIELDS}, competition_members!inner(user_id, role, is_competitor)` as any,
+        )
+        .order("end_date", { ascending: false })) as { data: any; error: any };
 
       if (compError) throw compError;
       
@@ -236,11 +255,11 @@ export function useCompetition(code: string) {
     queryKey: ["competition", code],
     queryFn: async () => {
       // Try to find by code first (uppercase)
-      const { data, error } = await supabase
+      const { data, error } = (await supabase
         .from("competitions")
-        .select("*")
+        .select(COMPETITION_FIELDS as any)
         .eq("code", code.toUpperCase())
-        .maybeSingle();
+        .maybeSingle()) as { data: any; error: any };
 
       if (error) throw error;
       
@@ -258,19 +277,19 @@ export function useCompetitionById(id: string | undefined) {
     queryKey: ["competition-by-id", id],
     queryFn: async () => {
       // Try to find by ID first
-      let { data, error } = await supabase
+      let { data, error } = (await supabase
         .from("competitions")
-        .select("*")
+        .select(COMPETITION_FIELDS as any)
         .eq("id", id)
-        .maybeSingle();
+        .maybeSingle()) as { data: any; error: any };
 
       // If not found by ID, try by code (for backward compatibility)
       if (!data && id) {
-        const codeResult = await supabase
+        const codeResult = (await supabase
           .from("competitions")
-          .select("*")
+          .select(COMPETITION_FIELDS as any)
           .eq("code", id.toUpperCase())
-          .maybeSingle();
+          .maybeSingle()) as { data: any; error: any };
         
         if (!codeResult.error) {
           data = codeResult.data;
